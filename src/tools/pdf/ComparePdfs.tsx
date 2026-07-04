@@ -1,29 +1,48 @@
-import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
-import { GitCompare, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { RotateCcw, FileText, ArrowLeftRight, ChevronDown, ChevronUp, UploadCloud, FileMinus, FilePlus } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
-import pixelmatch from "pixelmatch";
+import { diffWords } from "diff";
+import { cn } from "@/lib/utils";
 import { useDocumentJob } from "@/hooks/useDocumentJob";
 import DocumentDropzone from "@/components/document/DocumentDropzone";
 import DocProcessingOverlay from "@/components/document/DocProcessingOverlay";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 
+function normalizeText(text: string): string {
+  return text
+    .normalize("NFC")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function extractPageText(doc: pdfjsLib.PDFDocumentProxy, pageNum: number): Promise<string> {
+  const page = await doc.getPage(pageNum);
+  const content = await page.getTextContent();
+  return content.items.map((item) => ("str" in item ? (item as { str: string }).str : "")).join(" ");
+}
+
+async function extractFullText(file: File): Promise<{ text: string; pageCount: number }> {
+  const buf = await file.arrayBuffer();
+  const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+  const pages: string[] = [];
+  for (let p = 1; p <= doc.numPages; p++) {
+    pages.push(normalizeText(await extractPageText(doc, p)));
+  }
+  return { text: pages.join("\n\n"), pageCount: doc.numPages };
+}
+
 export default function ComparePdfs() {
   const [fileA, setFileA] = useState<File | null>(null);
   const [fileB, setFileB] = useState<File | null>(null);
   const [pageCountA, setPageCountA] = useState(0);
   const [pageCountB, setPageCountB] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [zoom, setZoom] = useState(1);
-  const [diffPercent, setDiffPercent] = useState<number | null>(null);
-  const canvasARef = useRef<HTMLCanvasElement>(null);
-  const canvasBRef = useRef<HTMLCanvasElement>(null);
-  const canvasDiffRef = useRef<HTMLCanvasElement>(null);
-  const scrollARef = useRef<HTMLDivElement>(null);
-  const scrollBRef = useRef<HTMLDivElement>(null);
-  const docARef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
-  const docBRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
+  const [textA, setTextA] = useState("");
+  const [textB, setTextB] = useState("");
+  const [activeDiffIndex, setActiveDiffIndex] = useState(0);
+  const diffRefs = useRef<Record<number, HTMLSpanElement | null>>({});
+  const combinedInputRef = useRef<HTMLInputElement>(null);
   const { status, progress, stepLabel, errorMessage, run, cancel, reset } = useDocumentJob();
 
   const handleReset = () => {
@@ -31,31 +50,27 @@ export default function ComparePdfs() {
     setFileB(null);
     setPageCountA(0);
     setPageCountB(0);
-    setCurrentPage(1);
-    setDiffPercent(null);
-    docARef.current = null;
-    docBRef.current = null;
+    setTextA("");
+    setTextB("");
+    setActiveDiffIndex(0);
     reset();
   };
 
   const loadPair = async (a: File, b: File) => {
-    await run("loading these PDFs", async (setProgress, checkCancelled) => {
-      setProgress(10, "Reading first PDF…");
-      const bufA = await a.arrayBuffer();
+    await run("comparing these PDFs", async (setProgress, checkCancelled) => {
+      setProgress(20, "Extracting text from first PDF…");
+      const resultA = await extractFullText(a);
       checkCancelled();
-      const docA = await pdfjsLib.getDocument({ data: bufA }).promise;
-      setProgress(40, "Reading second PDF…");
-      docARef.current = docA;
-      setPageCountA(docA.numPages);
+      setPageCountA(resultA.pageCount);
+      setTextA(resultA.text);
 
-      const bufB = await b.arrayBuffer();
+      setProgress(60, "Extracting text from second PDF…");
+      const resultB = await extractFullText(b);
       checkCancelled();
-      const docB = await pdfjsLib.getDocument({ data: bufB }).promise;
-      docBRef.current = docB;
-      setPageCountB(docB.numPages);
+      setPageCountB(resultB.pageCount);
+      setTextB(resultB.text);
 
-      setProgress(100, "Ready");
-      setCurrentPage(1);
+      setProgress(100, "Done");
     });
   };
 
@@ -68,179 +83,256 @@ export default function ComparePdfs() {
     if (fileA) loadPair(fileA, f);
   };
 
-  const renderPage = async () => {
-    const docA = docARef.current;
-    const docB = docBRef.current;
-    if (!docA || !docB) return;
-
-    const hasA = currentPage <= docA.numPages;
-    const hasB = currentPage <= docB.numPages;
-
-   if (hasA && canvasARef.current) {
-  const page = await docA.getPage(currentPage);
-  const viewport = page.getViewport({ scale: zoom * 1.5 });
-  const canvas = canvasARef.current;
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
-  const ctx = canvas.getContext("2d")!;
-  await page.render({ canvas, canvasContext: ctx, viewport }).promise;
-}
-
-if (hasB && canvasBRef.current) {
-  const page = await docB.getPage(currentPage);
-  const viewport = page.getViewport({ scale: zoom * 1.5 });
-  const canvas = canvasBRef.current;
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
-  const ctx = canvas.getContext("2d")!;
-  await page.render({ canvas, canvasContext: ctx, viewport }).promise;
-}
-
-    // Pixel diff — only meaningful when both pages exist and share dimensions.
-    if (hasA && hasB && canvasARef.current && canvasBRef.current && canvasDiffRef.current) {
-      const a = canvasARef.current;
-      const b = canvasBRef.current;
-      if (a.width === b.width && a.height === b.height) {
-        const ctxA = a.getContext("2d")!;
-        const ctxB = b.getContext("2d")!;
-        const imgA = ctxA.getImageData(0, 0, a.width, a.height);
-        const imgB = ctxB.getImageData(0, 0, b.width, b.height);
-        const diffCanvas = canvasDiffRef.current;
-        diffCanvas.width = a.width;
-        diffCanvas.height = a.height;
-        const diffCtx = diffCanvas.getContext("2d")!;
-        const diffImg = diffCtx.createImageData(a.width, a.height);
-
-        const changedPixels = pixelmatch(imgA.data, imgB.data, diffImg.data, a.width, a.height, {
-          threshold: 0.1,
-          diffColor: [255, 0, 80],
-        });
-
-        diffCtx.putImageData(diffImg, 0, 0);
-        setDiffPercent((changedPixels / (a.width * a.height)) * 100);
-      } else {
-        setDiffPercent(null);
-      }
-    } else {
-      setDiffPercent(null);
+  const handleCombinedPick = (files: FileList) => {
+    const list = Array.from(files).filter((f) => f.type === "application/pdf");
+    if (list.length === 0) return;
+    if (list.length === 1) {
+      if (!fileA) handleFileA(list[0]);
+      else handleFileB(list[0]);
+      return;
     }
+    handleFileA(list[0]);
+    handleFileB(list[1]);
   };
 
-  useEffect(() => {
-    if (docARef.current && docBRef.current) renderPage();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, zoom]);
-
-  const maxPage = Math.max(pageCountA, pageCountB);
-
-  const syncScroll = (source: "a" | "b") => (e: React.UIEvent<HTMLDivElement>) => {
-    const target = source === "a" ? scrollBRef.current : scrollARef.current;
-    if (target) {
-      target.scrollTop = e.currentTarget.scrollTop;
-      target.scrollLeft = e.currentTarget.scrollLeft;
-    }
+  const handleSwap = () => {
+    if (!fileA || !fileB) return;
+    const newA = fileB;
+    const newB = fileA;
+    setFileA(newA);
+    setFileB(newB);
+    setActiveDiffIndex(0);
+    loadPair(newA, newB);
   };
+
+  const wordDiffParts = diffWords(textA, textB);
+  const isIdentical = textA === textB;
+
+  const diffIndices = useMemo(
+    () => wordDiffParts.map((p, i) => (p.added || p.removed ? i : -1)).filter((i) => i !== -1),
+    [wordDiffParts],
+  );
+  const wordsAdded = wordDiffParts.filter((p) => p.added).reduce((sum, p) => sum + p.value.trim().split(/\s+/).filter(Boolean).length, 0);
+  const wordsRemoved = wordDiffParts.filter((p) => p.removed).reduce((sum, p) => sum + p.value.trim().split(/\s+/).filter(Boolean).length, 0);
+
+  // Presentation-only grouping of the same diff parts — no new comparison logic.
+  // "Only in A" = removed segments (present in text A, absent from B).
+  // "Only in B" = added segments (absent from text A, present in B).
+  const onlyInA = useMemo(
+    () => wordDiffParts.filter((p) => p.removed && p.value.trim().length > 0).map((p) => p.value.trim()),
+    [wordDiffParts],
+  );
+  const onlyInB = useMemo(
+    () => wordDiffParts.filter((p) => p.added && p.value.trim().length > 0).map((p) => p.value.trim()),
+    [wordDiffParts],
+  );
+
+  const jumpTo = (direction: 1 | -1) => {
+    if (diffIndices.length === 0) return;
+    const currentPos = diffIndices.indexOf(activeDiffIndex);
+    const nextPos = currentPos === -1 ? 0 : (currentPos + direction + diffIndices.length) % diffIndices.length;
+    const nextIndex = diffIndices[nextPos];
+    setActiveDiffIndex(nextIndex);
+    diffRefs.current[nextIndex]?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const bothFilesReady = fileA && fileB && status === "done";
 
   return (
     <div className="space-y-6">
-      {(!fileA || !fileB) && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <p className="text-xs uppercase text-muted-foreground">First PDF</p>
-            {!fileA ? (
-              <DocumentDropzone onFile={handleFileA} accept="application/pdf" label="Drop first PDF here" />
-            ) : (
-              <p className="rounded-xl border border-border bg-secondary/30 p-3 text-sm">{fileA.name}</p>
-            )}
+      {!bothFilesReady && (
+        <div>
+          <p className="mb-3 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-foreground bg-primary/15 text-[10px]">1</span>
+            Add the two PDFs you want to compare
+          </p>
+
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (e.dataTransfer.files?.length) handleCombinedPick(e.dataTransfer.files);
+            }}
+            onClick={() => combinedInputRef.current?.click()}
+            className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-foreground/40 bg-card p-8 text-center transition-all hover:-translate-y-0.5 hover:border-foreground hover:shadow-[5px_5px_0_0_var(--color-foreground)]"
+          >
+            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full border-2 border-foreground bg-primary/15 text-primary" style={{ transform: "rotate(-6deg)" }}>
+              <UploadCloud className="h-5 w-5" />
+            </div>
+            <div className="text-sm font-bold">
+              Drop both PDFs here at once, or <span className="text-primary underline decoration-2 underline-offset-2">browse</span>
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">Select 2 files together — they'll be compared automatically</div>
+            <input
+              ref={combinedInputRef}
+              type="file"
+              accept="application/pdf"
+              multiple
+              onChange={(e) => e.target.files && handleCombinedPick(e.target.files)}
+              className="hidden"
+            />
           </div>
-          <div className="space-y-2">
-            <p className="text-xs uppercase text-muted-foreground">Second PDF</p>
-            {!fileB ? (
-              <DocumentDropzone onFile={handleFileB} accept="application/pdf" label="Drop second PDF here" />
-            ) : (
-              <p className="rounded-xl border border-border bg-secondary/30 p-3 text-sm">{fileB.name}</p>
-            )}
-          </div>
+
+          {(fileA || fileB) && (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <p className="inline-flex rounded-full border-2 border-foreground bg-background px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  First PDF
+                </p>
+                {!fileA ? (
+                  <DocumentDropzone onFile={handleFileA} accept="application/pdf" label="Drop first PDF here" />
+                ) : (
+                  <p className="rounded-2xl border-2 border-foreground bg-card p-3 text-sm font-bold shadow-[3px_3px_0_0_var(--color-foreground)]">
+                    {fileA.name}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <p className="inline-flex rounded-full border-2 border-foreground bg-background px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Second PDF
+                </p>
+                {!fileB ? (
+                  <DocumentDropzone onFile={handleFileB} accept="application/pdf" label="Drop second PDF here" />
+                ) : (
+                  <p className="rounded-2xl border-2 border-foreground bg-card p-3 text-sm font-bold shadow-[3px_3px_0_0_var(--color-foreground)]">
+                    {fileB.name}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       <DocProcessingOverlay status={status} progress={progress} stepLabel={stepLabel} errorMessage={errorMessage} onCancel={cancel} />
 
-      {fileA && fileB && status === "done" && (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm">
-              <span>{fileA.name} ({pageCountA} pages)</span>
+      {bothFilesReady && (
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-foreground bg-card p-4 shadow-[4px_4px_0_0_var(--color-foreground)]">
+            <div className="flex flex-wrap items-center gap-2 text-sm font-bold">
+              <span>{fileA.name}</span>
+              <span className="rounded-full border-2 border-foreground bg-background px-2 py-0.5 text-xs">{pageCountA} pages</span>
               <span className="text-muted-foreground">vs</span>
-              <span>{fileB.name} ({pageCountB} pages)</span>
-            </div>
-            <button onClick={handleReset} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive">
-              <RotateCcw className="h-3.5 w-3.5" /> Compare different files
-            </button>
-          </div>
-
-          {pageCountA !== pageCountB && (
-            <p className="rounded-xl border border-amber-400/40 bg-amber-400/5 p-3 text-sm text-amber-700 dark:text-amber-400">
-              These PDFs have different page counts ({pageCountA} vs {pageCountB}) — pages beyond the shorter document will show as blank on that side.
-            </p>
-          )}
-
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage <= 1}
-                className="rounded-lg border border-border px-3 py-1.5 text-sm disabled:opacity-40"
-              >
-                ← Prev
-              </button>
-              <span className="text-sm text-muted-foreground">Page {currentPage} / {maxPage}</span>
-              <button
-                onClick={() => setCurrentPage((p) => Math.min(maxPage, p + 1))}
-                disabled={currentPage >= maxPage}
-                className="rounded-lg border border-border px-3 py-1.5 text-sm disabled:opacity-40"
-              >
-                Next →
-              </button>
+              <span>{fileB.name}</span>
+              <span className="rounded-full border-2 border-foreground bg-background px-2 py-0.5 text-xs">{pageCountB} pages</span>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))} className="rounded-lg border border-border p-1.5">
-                <ZoomOut className="h-4 w-4" />
+              <button
+                onClick={handleSwap}
+                className="inline-flex items-center gap-1.5 rounded-full border-2 border-foreground bg-background px-3 py-1.5 text-xs font-bold text-muted-foreground transition-all hover:-translate-y-0.5 hover:text-foreground hover:shadow-[3px_3px_0_0_var(--color-foreground)]"
+              >
+                <ArrowLeftRight className="h-3.5 w-3.5" /> Swap
               </button>
-              <span className="text-sm text-muted-foreground">{Math.round(zoom * 100)}%</span>
-              <button onClick={() => setZoom((z) => Math.min(3, z + 0.25))} className="rounded-lg border border-border p-1.5">
-                <ZoomIn className="h-4 w-4" />
+              <button
+                onClick={handleReset}
+                className="inline-flex items-center gap-1.5 rounded-full border-2 border-foreground bg-background px-3 py-1.5 text-xs font-bold text-muted-foreground transition-all hover:-translate-y-0.5 hover:text-destructive hover:shadow-[3px_3px_0_0_var(--color-foreground)]"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Start over
               </button>
             </div>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div ref={scrollARef} onScroll={syncScroll("a")} className="max-h-[600px] overflow-auto rounded-xl border border-border bg-secondary/20 p-2">
-              {currentPage <= pageCountA ? (
-                <canvas ref={canvasARef} className="mx-auto" />
-              ) : (
-                <p className="p-8 text-center text-sm text-muted-foreground">No page {currentPage} in this document</p>
-              )}
-            </div>
-            <div ref={scrollBRef} onScroll={syncScroll("b")} className="max-h-[600px] overflow-auto rounded-xl border border-border bg-secondary/20 p-2">
-              {currentPage <= pageCountB ? (
-                <canvas ref={canvasBRef} className="mx-auto" />
-              ) : (
-                <p className="p-8 text-center text-sm text-muted-foreground">No page {currentPage} in this document</p>
-              )}
-            </div>
-          </div>
+          <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-foreground bg-primary/15 text-[10px]">2</span>
+            Comparison result
+          </p>
 
-          {diffPercent !== null && (
-            <div className="space-y-2 rounded-xl border border-border bg-secondary/30 p-4">
-              <div className="flex items-center gap-2 text-sm">
-                <GitCompare className="h-4 w-4" />
-                <span>{diffPercent < 0.5 ? "Pages appear visually identical" : `${diffPercent.toFixed(2)}% of this page differs`}</span>
+          {isIdentical ? (
+            <div className="rounded-2xl border-2 border-emerald-500 bg-emerald-500/10 p-4 text-sm font-bold text-emerald-700 shadow-[4px_4px_0_0_var(--color-foreground)] dark:text-emerald-400">
+              No text differences found — these documents appear identical.
+            </div>
+          ) : (
+            <>
+              {/* NEW: Only-in-A / Only-in-B breakdown, using the same diff parts already computed */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 rounded-2xl border-2 border-red-500 bg-red-500/5 p-4 shadow-[4px_4px_0_0_var(--color-foreground)]">
+                  <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-red-700 dark:text-red-400">
+                    <FileMinus className="h-3.5 w-3.5" /> Only in {fileA.name}
+                  </p>
+                  {onlyInA.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nothing found only in this file.</p>
+                  ) : (
+                    <ul className="max-h-64 space-y-1.5 overflow-auto text-sm">
+                      {onlyInA.map((chunk, idx) => (
+                        <li key={idx} className="rounded-lg border-2 border-red-500/30 bg-background px-2.5 py-1.5 text-red-700 dark:text-red-400">
+                          {chunk}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="space-y-2 rounded-2xl border-2 border-emerald-500 bg-emerald-500/5 p-4 shadow-[4px_4px_0_0_var(--color-foreground)]">
+                  <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                    <FilePlus className="h-3.5 w-3.5" /> Only in {fileB.name}
+                  </p>
+                  {onlyInB.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nothing found only in this file.</p>
+                  ) : (
+                    <ul className="max-h-64 space-y-1.5 overflow-auto text-sm">
+                      {onlyInB.map((chunk, idx) => (
+                        <li key={idx} className="rounded-lg border-2 border-emerald-500/30 bg-background px-2.5 py-1.5 text-emerald-700 dark:text-emerald-400">
+                          {chunk}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
-              {diffPercent >= 0.5 && (
-                <canvas ref={canvasDiffRef} className="mx-auto max-w-full rounded-lg border border-border" />
-              )}
-            </div>
+
+              {/* Existing inline diff view — unchanged */}
+              <div className="space-y-3 rounded-2xl border-2 border-foreground bg-card p-5 shadow-[4px_4px_0_0_var(--color-foreground)]">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                    <FileText className="h-3.5 w-3.5" /> Text Differences
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full border-2 border-foreground bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                      +{wordsAdded} added
+                    </span>
+                    <span className="rounded-full border-2 border-foreground bg-red-500/10 px-2.5 py-0.5 text-xs font-bold text-red-700 dark:text-red-400">
+                      -{wordsRemoved} removed
+                    </span>
+                    {diffIndices.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => jumpTo(-1)}
+                          className="rounded-full border-2 border-foreground bg-background p-1.5 transition-all hover:-translate-y-0.5 hover:shadow-[2px_2px_0_0_var(--color-foreground)]"
+                          aria-label="Previous change"
+                        >
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => jumpTo(1)}
+                          className="rounded-full border-2 border-foreground bg-background p-1.5 transition-all hover:-translate-y-0.5 hover:shadow-[2px_2px_0_0_var(--color-foreground)]"
+                          aria-label="Next change"
+                        >
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="max-h-[600px] overflow-auto rounded-xl border-2 border-foreground bg-background p-4 text-sm leading-relaxed whitespace-pre-wrap">
+                  {wordDiffParts.map((part, idx) => (
+                    <span
+                      key={idx}
+                      ref={(el) => {
+                        if (part.added || part.removed) diffRefs.current[idx] = el;
+                      }}
+                      className={cn(
+                        part.added && "rounded bg-emerald-500/20 px-0.5 font-semibold text-emerald-700 dark:text-emerald-400",
+                        part.removed && "rounded bg-red-500/20 px-0.5 text-red-700 line-through dark:text-red-400",
+                        activeDiffIndex === idx && (part.added || part.removed) && "ring-2 ring-primary",
+                      )}
+                    >
+                      {part.value}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}

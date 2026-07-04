@@ -52,7 +52,6 @@ export const TOOLS: Tool[] = [
   // PDF
   { slug: "merge-pdf", name: "Merge PDFs", description: "Combine multiple PDFs into a single file.", category: "pdf", icon: Merge, status: "live", popular: true, featured: true, keywords: ["combine", "join"] },
   { slug: "split-pdf", name: "Split PDF", description: "Split a PDF into individual pages or ranges.", category: "pdf", icon: Scissors, status: "live", popular: true },
-  { slug: "compress-pdf", name: "Compress PDF", description: "Reduce PDF file size while keeping quality.", category: "pdf", icon: FileArchive, status: "live", popular: true, keywords: ["reduce", "shrink"] },
   { slug: "jpg-to-pdf", name: "JPG to PDF", description: "Convert images into a single PDF document.", category: "pdf", icon: FileImage, status: "live", featured: true, keywords: ["image", "png"] },
   { slug: "reorder-pdf", name: "Reorder PDF Pages", description: "Rearrange pages inside a PDF.", category: "pdf", icon: ListOrdered, status: "live" },
   { slug: "delete-pdf-pages", name: "Delete PDF Pages", description: "Remove selected pages from a PDF.", category: "pdf", icon: Trash2, status: "live" },
@@ -61,9 +60,9 @@ export const TOOLS: Tool[] = [
   { slug: "protect-pdf", name: "Password Protect PDF", description: "Encrypt a PDF with a password.", category: "pdf", icon: Lock, status: "live" },
   { slug: "sign-pdf", name: "Digital Signature", description: "Draw a signature and stamp it on a PDF.", category: "pdf", icon: PenLine, status: "live" },
   { slug: "pdf-to-word", name: "PDF to Word", description: "Convert PDF documents into editable DOCX.", category: "pdf", icon: FileDown, status: "soon" },
-  { slug: "word-to-pdf", name: "Word to PDF", description: "Convert DOCX documents into PDF.", category: "pdf", icon: FileUp, status: "live" },
+  { slug: "word-to-pdf", name: "Word to PDF", description: "Convert DOCX documents into PDF.", category: "pdf", icon: FileUp, status: "soon" },
   { slug: "pdf-to-ppt", name: "PDF to PowerPoint", description: "Convert PDF slides into editable PPTX.", category: "pdf", icon: Presentation, status: "soon" },
-  { slug: "ppt-to-pdf", name: "PowerPoint to PDF", description: "Convert PPTX presentations to PDF.", category: "pdf", icon: Presentation, status: "live" },
+  { slug: "ppt-to-pdf", name: "PowerPoint to PDF", description: "Convert PPTX presentations to PDF.", category: "pdf", icon: Presentation, status: "soon" },
   { slug: "compare-pdfs", name: "Compare Two PDFs", description: "Visual side-by-side PDF comparison.", category: "pdf", icon: GitCompare, status: "live" },
 
   // Image

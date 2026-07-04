@@ -207,7 +207,7 @@ export default function CropBox({
 
       <div
         onPointerDown={startDrag("move")}
-        className="absolute cursor-move border-2 border-primary touch-none"
+        className="absolute cursor-move border-2 border-primary shadow-[3px_3px_0_0_var(--color-foreground)] touch-none"
         style={{
           left: `${value.x}%`,
           top: `${value.y}%`,
@@ -219,7 +219,7 @@ export default function CropBox({
           <div
             key={h}
             onPointerDown={startDrag(h)}
-            className={`absolute h-4 w-4 rounded-full border-2 border-primary bg-background shadow touch-none ${handlePositions[h]}`}
+            className={`absolute h-4 w-4 rounded-full border-2 border-foreground bg-primary shadow-[2px_2px_0_0_var(--color-foreground)] transition-transform hover:scale-110 touch-none ${handlePositions[h]}`}
           />
         ))}
       </div>

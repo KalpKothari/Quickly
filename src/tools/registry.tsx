@@ -5,7 +5,6 @@ type ToolComponent = ComponentType<Record<string, never>>;
 // PDF
 const MergePdf = lazy(() => import("./pdf/MergePdf"));
 const SplitPdf = lazy(() => import("./pdf/SplitPdf"));
-const CompressPdf = lazy(() => import("./pdf/CompressPdf"));
 const JpgToPdf = lazy(() => import("./pdf/JpgToPdf"));
 const ReorderPdf = lazy(() => import("./pdf/ReorderPdf"));
 const DeletePdfPages = lazy(() => import("./pdf/DeletePdfPages"));
@@ -13,9 +12,7 @@ const ExtractPdfPages = lazy(() => import("./pdf/ExtractPdfPages"));
 const PageNumbers = lazy(() => import("./pdf/PageNumbers"));
 const ProtectPdf = lazy(() => import("./pdf/ProtectPdf"));
 const SignPdf = lazy(() => import("./pdf/SignPdf"));
-const WordToPdf = lazy(() => import("./pdf/WordTPdf"));
 const ComparePdfs = lazy(() => import("./pdf/ComparePdfs"));
-const PowerPointToPdf = lazy(() => import("./pdf/PowerPointToPdf"));
 
 // Image
 const CompressImage = lazy(() => import("./image/CompressImage"));
@@ -77,7 +74,6 @@ const Stopwatch = lazy(() => import("./utility/Stopwatch"));
 export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
   "merge-pdf": MergePdf,
   "split-pdf": SplitPdf,
-  "compress-pdf": CompressPdf,
   "jpg-to-pdf": JpgToPdf,
   "reorder-pdf": ReorderPdf,
   "delete-pdf-pages": DeletePdfPages,
@@ -85,9 +81,8 @@ export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
   "page-numbers": PageNumbers,
   "protect-pdf": ProtectPdf,
   "sign-pdf": SignPdf,
-  "word-to-pdf": WordToPdf,
   "compare-pdfs": ComparePdfs,
-  "ppt-to-pdf": PowerPointToPdf,
+
 
   "compress-image": CompressImage,
   "crop-image": CropImage,

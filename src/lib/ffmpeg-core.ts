@@ -103,7 +103,24 @@ export interface ClipMeta {
 }
 
 export interface Transition {
-  type: "cut" | "fade" | "fadeblack" | "wipeleft" | "wiperight" | "slideup" | "slidedown" | "dissolve";
+  type:
+    | "cut"
+    | "fade"
+    | "fadeblack"
+    | "wipeleft"
+    | "wiperight"
+    | "slideup"
+    | "slidedown"
+    | "dissolve"
+    // Native ffmpeg `xfade` transitions — same pass-through mechanism as the ones above,
+    // just more of the built-in catalog exposed. "zoomin" is a real xfade effect; the
+    // others are the closest genuine xfade transitions to a "zoom out" / "pop" feel,
+    // since xfade has no transition literally named that.
+    | "zoomin"
+    | "circleopen"
+    | "circleclose"
+    | "radial"
+    | "pixelize";
   duration: number; // seconds; ignored (forced to 0.05) when type is "cut"
 }
 

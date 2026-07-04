@@ -1,11 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import { PDFDocument } from "pdf-lib";
+import * as pdfjsLib from "pdfjs-dist";
 import { toast } from "sonner";
-import { Download, RotateCcw, ArrowRight, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Download, RotateCcw, ArrowRight, ChevronLeft, ChevronRight, Trash2, PenTool } from "lucide-react";
 import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob } from "@/lib/format";
 
+// Bundler-native worker URL (works with Vite and Webpack 5 without a special
+// loader), set once at module load instead of resolved at render time.
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url,
+).href;
+
 type Step = "sign" | "place";
+
+// One-tap placements so the common corners/edges never need manual dragging —
+// dragging still works exactly as before, this just sets the same `pos` state.
+const POSITION_PRESETS: [string, { x: number; y: number }][] = [
+  ["Top left", { x: 0.1, y: 0.08 }],
+  ["Top center", { x: 0.5, y: 0.08 }],
+  ["Top right", { x: 0.9, y: 0.08 }],
+  ["Center", { x: 0.5, y: 0.5 }],
+  ["Bottom left", { x: 0.1, y: 0.92 }],
+  ["Bottom center", { x: 0.5, y: 0.92 }],
+  ["Bottom right", { x: 0.9, y: 0.92 }],
+];
 
 export default function SignPdf() {
   const [files, setFiles] = useState<File[]>([]);
@@ -68,12 +88,8 @@ export default function SignPdf() {
     if (step !== "place" || !files[0]) return;
     let cancelled = false;
     (async () => {
-      const pdfjs = await import("pdfjs-dist");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const workerSrc = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default as string;
-      pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
       const buf = await files[0].arrayBuffer();
-      const doc = await pdfjs.getDocument({ data: buf }).promise;
+      const doc = await pdfjsLib.getDocument({ data: buf }).promise;
       const page = await doc.getPage(targetPage);
       const viewport = page.getViewport({ scale: 1.5 });
       const canvas = document.createElement("canvas");
@@ -151,25 +167,47 @@ export default function SignPdf() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-1.5">
+        <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-foreground bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)]">
+          <PenTool className="h-3.5 w-3.5" />
+          Sign PDF
+        </span>
+      </div>
+
       <FileDrop accept="application/pdf" files={files} onFiles={setFiles} />
+
+      {files[0] && (
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          <span className={"flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-foreground text-[10px] " + (step === "sign" ? "bg-primary text-primary-foreground" : "bg-primary/15")}>1</span>
+          Draw
+          <span className="h-px w-6 bg-foreground/20" />
+          <span className={"flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-foreground text-[10px] " + (step === "place" ? "bg-primary text-primary-foreground" : "bg-primary/15")}>2</span>
+          Place
+        </div>
+      )}
 
       {files[0] && step === "sign" && (
         <>
           <div>
-            <div className="mb-2 text-xs uppercase text-muted-foreground">Draw your signature below</div>
+            <span className="inline-flex rounded-full border-2 border-foreground bg-primary/15 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">
+              Draw your signature below
+            </span>
             <canvas
               ref={canvasRef} width={600} height={200}
               onPointerDown={startStroke} onPointerMove={moveStroke} onPointerUp={endStroke} onPointerLeave={endStroke}
-              className="w-full touch-none rounded-2xl border-2 border-dashed border-border bg-white"
+              className="mt-2 w-full touch-none rounded-2xl border-2 border-dashed border-foreground/40 bg-white shadow-[3px_3px_0_0_var(--color-foreground)]"
               style={{ aspectRatio: "3/1" }}
             />
-            <button onClick={clearSig} className="mt-2 inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-secondary">
+            <button
+              onClick={clearSig}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-full border-2 border-foreground bg-card px-3 py-1.5 text-xs font-bold transition-transform hover:-translate-y-0.5"
+            >
               <RotateCcw className="h-3 w-3" /> Clear
             </button>
           </div>
           <button
             onClick={goToPlacement}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+            className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
           >
             Continue <ArrowRight className="h-4 w-4" />
           </button>
@@ -178,54 +216,75 @@ export default function SignPdf() {
 
       {files[0] && step === "place" && signaturePng && (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-foreground bg-card p-3 shadow-[3px_3px_0_0_var(--color-foreground)]">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setTargetPage((p) => Math.max(1, p - 1))}
                 disabled={targetPage <= 1}
-                className="rounded-lg border border-border p-2 hover:bg-secondary disabled:opacity-40"
+                className="rounded-full border-2 border-foreground bg-background p-2 transition-transform enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-30"
                 aria-label="Previous page"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="text-sm">Page {targetPage} of {pageCount}</span>
+              <span className="rounded-full border-2 border-foreground bg-background px-3 py-1 text-xs font-bold">
+                Page {targetPage} of {pageCount}
+              </span>
               <button
                 onClick={() => setTargetPage((p) => Math.min(pageCount, p + 1))}
                 disabled={targetPage >= pageCount}
-                className="rounded-lg border border-border p-2 hover:bg-secondary disabled:opacity-40"
+                className="rounded-full border-2 border-foreground bg-background p-2 transition-transform enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-30"
                 aria-label="Next page"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                 Size
                 <input
                   type="range" min={0.1} max={0.6} step={0.01}
                   value={sigWidthPct}
                   onChange={(e) => setSigWidthPct(+e.target.value)}
+                  aria-label="Signature size"
+                  className="accent-primary"
                 />
               </label>
               <button
                 onClick={() => { setSignaturePng(null); setStep("sign"); }}
-                className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-secondary"
+                className="inline-flex items-center gap-1.5 rounded-full border-2 border-foreground bg-background px-3 py-1.5 text-xs font-bold transition-transform hover:-translate-y-0.5"
               >
                 <Trash2 className="h-3 w-3" /> Redraw
               </button>
             </div>
           </div>
 
+          {/* One-tap placements — dragging on the preview below still works exactly the same. */}
+          <div className="flex flex-wrap gap-1.5">
+            {POSITION_PRESETS.map(([label, p]) => (
+              <button
+                key={label}
+                onClick={() => setPos(p)}
+                aria-pressed={pos.x === p.x && pos.y === p.y}
+                className={
+                  "rounded-full border-2 border-foreground px-2.5 py-1 text-xs font-bold transition-transform hover:-translate-y-0.5 " +
+                  (pos.x === p.x && pos.y === p.y ? "bg-primary text-primary-foreground shadow-[2px_2px_0_0_var(--color-foreground)]" : "bg-card")
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           <div className="mx-auto max-w-2xl">
             <div
               ref={previewRef}
-              className="relative w-full overflow-hidden rounded-xl border border-border bg-white shadow-sm"
+              className="relative w-full overflow-hidden rounded-2xl border-2 border-foreground bg-white shadow-[5px_5px_0_0_var(--color-foreground)]"
               style={{ aspectRatio: previewAspect }}
             >
               {pageImg ? (
                 <img src={pageImg} alt="" className="pointer-events-none absolute inset-0 h-full w-full select-none" />
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+                <div className="absolute inset-0 flex items-center justify-center text-xs font-medium text-muted-foreground">
                   Loading page…
                 </div>
               )}
@@ -246,8 +305,8 @@ export default function SignPdf() {
                 }}
               />
             </div>
-            <p className="mt-2 text-center text-xs text-muted-foreground">
-              Drag the signature to position it. Use the slider to resize.
+            <p className="mt-2 rounded-lg border-2 border-dashed border-foreground/30 px-3 py-2 text-center text-xs font-medium text-muted-foreground">
+              Tap a position above, or drag the signature to place it exactly. Use the slider to resize.
             </p>
           </div>
 
@@ -255,7 +314,7 @@ export default function SignPdf() {
             <button
               onClick={apply}
               disabled={busy}
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
             >
               <Download className="h-4 w-4" /> {busy ? "Applying..." : "Apply Signature & Download"}
             </button>

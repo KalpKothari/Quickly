@@ -4,7 +4,7 @@ import { Waves, UploadCloud } from "lucide-react";
 import { decodeAudioFile, applyFade, audioBufferToWavBlob, downloadBlob } from "@/lib/audio-tools";
 import AudioPreview from "@/components/audio/AudioPreview";
 
-type Direction = "in" | "out";
+type Direction = "in" | "out" | "both";
 
 export default function FadeAudio() {
   const [file, setFile] = useState<File | null>(null);
@@ -31,7 +31,14 @@ export default function FadeAudio() {
     setBusy(true);
     try {
       const buffer = await decodeAudioFile(file);
-      const faded = applyFade(buffer, duration, direction);
+      let faded = buffer;
+      if (direction === "both") {
+        // apply fade in first, then fade out on the result
+        faded = applyFade(faded, duration, "in");
+        faded = applyFade(faded, duration, "out");
+      } else {
+        faded = applyFade(faded, duration, direction);
+      }
       setPreviewBlob(audioBufferToWavBlob(faded));
       toast.success("Preview ready — have a listen before downloading.");
     } catch {
@@ -58,6 +65,9 @@ export default function FadeAudio() {
     const f = e.dataTransfer.files?.[0];
     if (f) pickFile(f);
   };
+
+  const directionLabel = (d: Direction) =>
+    d === "in" ? "Fade In" : d === "out" ? "Fade Out" : "Both";
 
   return (
     <div className="space-y-6">
@@ -122,7 +132,7 @@ export default function FadeAudio() {
           </p>
 
           <div className="inline-flex rounded-xl border-2 border-foreground bg-background p-1">
-            {(["in", "out"] as Direction[]).map((d) => (
+            {(["in", "out", "both"] as Direction[]).map((d) => (
               <button
                 key={d}
                 onClick={() => {
@@ -135,14 +145,14 @@ export default function FadeAudio() {
                     : "border-2 border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Fade {d === "in" ? "In" : "Out"}
+                {directionLabel(d)}
               </button>
             ))}
           </div>
 
           <label className="block">
             <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Fade duration: {duration.toFixed(1)}s
+              Fade duration: {duration.toFixed(1)}s{direction === "both" ? " (each side)" : ""}
             </span>
             <input
               type="range"
@@ -160,7 +170,7 @@ export default function FadeAudio() {
             disabled={busy}
             className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform enabled:hover:-translate-y-0.5 enabled:hover:shadow-[5px_5px_0_0_var(--color-foreground)] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Waves className="h-4 w-4" /> {busy ? "Processing…" : `Apply Fade ${direction === "in" ? "In" : "Out"}`}
+            <Waves className="h-4 w-4" /> {busy ? "Processing…" : `Apply ${directionLabel(direction)}`}
           </button>
         </div>
       )}

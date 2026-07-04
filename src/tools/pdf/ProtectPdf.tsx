@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Lock } from "lucide-react";
+import { Lock, Eye, EyeOff, Check, X } from "lucide-react";
 import { PDFDocument } from "@cantoo/pdf-lib";
 import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob } from "@/lib/format";
@@ -9,8 +9,13 @@ export default function ProtectPdf() {
   const [files, setFiles] = useState<File[]>([]);
   const [userPassword, setUserPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [ownerPassword, setOwnerPassword] = useState("");
+  const [ownerPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const lengthOk = userPassword.length >= 4;
+  const matchOk = confirmPassword.length > 0 && userPassword === confirmPassword;
 
   const run = async () => {
     if (!files[0]) { toast.error("Please choose a PDF first."); return; }
@@ -47,29 +52,82 @@ export default function ProtectPdf() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-1.5">
+        <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-foreground bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)]">
+          <Lock className="h-3.5 w-3.5" />
+          Protect PDF
+        </span>
+      </div>
+
       <FileDrop accept="application/pdf" files={files} onFiles={setFiles} />
-      <div className="grid gap-3 sm:grid-cols-2">
+
+      <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
-          <span className="text-xs uppercase text-muted-foreground">Password</span>
-          <input type="password" value={userPassword} onChange={(e) => setUserPassword(e.target.value)} placeholder="Required"
-            className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5" />
+          <span className="inline-flex rounded-full border-2 border-foreground bg-primary/15 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">
+            Password
+          </span>
+          <div className="relative mt-2">
+            <input
+              type={showPassword ? "text" : "password"}
+              value={userPassword}
+              onChange={(e) => setUserPassword(e.target.value)}
+              placeholder="Required"
+              aria-label="Password"
+              className="w-full rounded-xl border-2 border-foreground bg-card px-3 py-2.5 pr-10 text-sm font-semibold shadow-[3px_3px_0_0_var(--color-foreground)] outline-none focus:shadow-[4px_4px_0_0_var(--color-primary)]"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          {/* Live feedback instead of waiting for the error toast on submit. */}
+          {userPassword.length > 0 && (
+            <div className={"mt-1.5 flex items-center gap-1 text-xs font-semibold " + (lengthOk ? "text-emerald-600" : "text-muted-foreground")}>
+              {lengthOk ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+              At least 4 characters
+            </div>
+          )}
         </label>
+
         <label className="block">
-          <span className="text-xs uppercase text-muted-foreground">Confirm password</span>
-          <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter password"
-            className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5" />
-        </label>
-        <label className="block sm:col-span-2">
-          <span className="text-xs uppercase text-muted-foreground">Owner password (optional)</span>
-          <input type="password" value={ownerPassword} onChange={(e) => setOwnerPassword(e.target.value)} placeholder="Defaults to the same password"
-            className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5" />
-          <span className="mt-1 block text-xs text-muted-foreground">Controls permissions like printing and copying.</span>
+          <span className="inline-flex rounded-full border-2 border-foreground bg-primary/15 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">
+            Confirm password
+          </span>
+          <div className="relative mt-2">
+            <input
+              type={showConfirm ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Re-enter password"
+              aria-label="Confirm password"
+              className="w-full rounded-xl border-2 border-foreground bg-card px-3 py-2.5 pr-10 text-sm font-semibold shadow-[3px_3px_0_0_var(--color-foreground)] outline-none focus:shadow-[4px_4px_0_0_var(--color-primary)]"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirm((v) => !v)}
+              aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          {confirmPassword.length > 0 && (
+            <div className={"mt-1.5 flex items-center gap-1 text-xs font-semibold " + (matchOk ? "text-emerald-600" : "text-destructive")}>
+              {matchOk ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+              {matchOk ? "Passwords match" : "Passwords don't match"}
+            </div>
+          )}
         </label>
       </div>
+
       <button
         onClick={run}
         disabled={busy || !files[0] || !userPassword || userPassword !== confirmPassword}
-        className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+        className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
       >
         <Lock className="h-4 w-4" /> {busy ? "Encrypting..." : "Encrypt & Download"}
       </button>

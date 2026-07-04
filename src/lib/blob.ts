@@ -13,3 +13,16 @@ export function fileDataToBlob(data: FileData, mime: string): Blob {
     type: mime,
   });
 }
+
+export function uint8ArrayToBlob(
+  data: Uint8Array,
+  mime: string,
+): Blob {
+  // Force a copy backed by a fresh ArrayBuffer
+  const copy = new Uint8Array(data.length);
+  copy.set(data);
+
+  return new Blob([copy], {
+    type: mime,
+  });
+}

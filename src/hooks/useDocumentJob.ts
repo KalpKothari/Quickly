@@ -40,6 +40,8 @@ export function useDocumentJob() {
           setStatus("cancelled");
           return;
         }
+        // Always log the real error for debugging — the UI still shows a friendly message.
+        console.error(`[document-job:${context}]`, e);
         setStatus("error");
         setErrorMessage(toFriendlyError(e, context));
       }

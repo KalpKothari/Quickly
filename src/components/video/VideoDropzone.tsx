@@ -38,12 +38,16 @@ export default function VideoDropzone({ onFile, accept = "video/*", label = "Dro
         if (file) handleFile(file);
       }}
       onClick={() => document.getElementById("video-file-input")?.click()}
-      className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-10 text-center transition ${
-        dragOver ? "border-primary bg-primary/5" : "border-border bg-secondary/20 hover:bg-secondary/30"
+      className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-10 text-center transition-all ${
+        dragOver
+          ? "border-primary bg-primary/10 shadow-[5px_5px_0_0_var(--color-foreground)]"
+          : "border-foreground/40 bg-card hover:border-foreground hover:shadow-[3px_3px_0_0_var(--color-foreground)]"
       }`}
     >
-      <UploadCloud className="h-8 w-8 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">{label}</p>
+      <span className="inline-flex h-14 w-14 items-center justify-center rounded-full border-2 border-foreground bg-primary/15 shadow-[2px_2px_0_0_var(--color-foreground)]">
+        <UploadCloud className="h-6 w-6 text-primary" />
+      </span>
+      <p className="text-sm font-semibold">{label}</p>
       <input
         id="video-file-input"
         type="file"

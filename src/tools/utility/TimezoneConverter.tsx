@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Globe2, ArrowRightLeft, Clock3 } from "lucide-react";
 
 const BASE_ZONES = [
   "UTC",
@@ -67,6 +68,14 @@ export default function TimezoneConverter() {
     return Array.from(s);
   }, [localTz]);
 
+  // One-tap zone pairs so a common conversion never needs two dropdown picks.
+  const popularPairs = useMemo<[string, string][]>(() => [
+    [localTz, "UTC"],
+    [localTz, "America/New_York"],
+    ["Europe/London", "Asia/Tokyo"],
+    ["America/Los_Angeles", "Asia/Kolkata"],
+  ], [localTz]);
+
   const [dt, setDt] = useState<string>(nowLocalInputValue());
   const [from, setFrom] = useState<string>(localTz);
   const [to, setTo] = useState<string>("UTC");
@@ -94,26 +103,99 @@ export default function TimezoneConverter() {
     }
   }, [dt, from, to]);
 
+  const swap = () => { setFrom(to); setTo(from); };
+
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <label className="block"><span className="text-xs uppercase text-muted-foreground">Date & time</span>
-          <input type="datetime-local" value={dt} onChange={(e) => setDt(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5" />
-        </label>
-        <label className="block"><span className="text-xs uppercase text-muted-foreground">From</span>
-          <select value={from} onChange={(e) => setFrom(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5">
-            {zones.map((z) => <option key={z} value={z}>{z}{z === localTz ? " (your timezone)" : ""}</option>)}
-          </select>
-        </label>
-        <label className="block"><span className="text-xs uppercase text-muted-foreground">To</span>
-          <select value={to} onChange={(e) => setTo(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5">
-            {zones.map((z) => <option key={z} value={z}>{z}{z === localTz ? " (your timezone)" : ""}</option>)}
-          </select>
-        </label>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-foreground bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)]">
+          <Globe2 className="h-3.5 w-3.5" />
+          Timezone
+        </span>
+        {popularPairs.map(([p, q]) => (
+          <button
+            key={`${p}-${q}`}
+            onClick={() => { setFrom(p); setTo(q); }}
+            aria-label={`Set ${p} to ${q}`}
+            className={
+              "rounded-full border-2 border-foreground px-3 py-1.5 text-sm font-bold transition-transform hover:-translate-y-0.5 " +
+              (from === p && to === q
+                ? "bg-secondary shadow-[3px_3px_0_0_var(--color-foreground)]"
+                : "bg-card")
+            }
+          >
+            {p.split("/").pop()} → {q.split("/").pop()}
+          </button>
+        ))}
       </div>
-      <div className="rounded-2xl bg-gradient-to-br from-violet-500/10 to-indigo-500/10 p-6">
-        <div className="text-xs uppercase text-muted-foreground">In {to}</div>
-        <div className="mt-1 font-display text-2xl font-bold">{output}</div>
+
+      {/* Result surfaced first so it's the first thing you see, and it updates live as anything below changes. */}
+      <div className="rounded-2xl border-2 border-foreground bg-gradient-to-br from-violet-500/15 to-indigo-500/15 p-6 shadow-[5px_5px_0_0_var(--color-foreground)]">
+        <div className="inline-flex rounded-full border-2 border-foreground bg-card px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-foreground/70">
+          In {to}
+        </div>
+        <div className="mt-3 text-2xl font-bold">{output}</div>
+      </div>
+
+      <label className="block">
+        <span className="inline-flex rounded-full border-2 border-foreground bg-primary/15 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">
+          Date &amp; time
+        </span>
+        <div className="mt-2 flex gap-2">
+          <input
+            type="datetime-local"
+            value={dt}
+            onChange={(e) => setDt(e.target.value)}
+            aria-label="Date and time"
+            className="w-full rounded-xl border-2 border-foreground bg-card px-3 py-2.5 text-sm font-semibold shadow-[3px_3px_0_0_var(--color-foreground)] outline-none focus:shadow-[4px_4px_0_0_var(--color-primary)]"
+          />
+          <button
+            onClick={() => setDt(nowLocalInputValue())}
+            aria-label="Set to current date and time"
+            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border-2 border-foreground bg-card px-3 text-sm font-bold shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
+          >
+            <Clock3 className="h-4 w-4" />
+            Now
+          </button>
+        </div>
+      </label>
+
+      <div className="grid items-start gap-3 sm:grid-cols-[1fr_auto_1fr]">
+        <label className="block">
+          <span className="inline-flex rounded-full border-2 border-foreground bg-primary/15 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">
+            From
+          </span>
+          <select
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            aria-label="Convert from timezone"
+            className="mt-2 w-full rounded-xl border-2 border-foreground bg-card px-3 py-2.5 text-sm font-bold shadow-[3px_3px_0_0_var(--color-foreground)] outline-none focus:shadow-[4px_4px_0_0_var(--color-primary)]"
+          >
+            {zones.map((z) => <option key={z} value={z}>{z}{z === localTz ? " (your timezone)" : ""}</option>)}
+          </select>
+        </label>
+
+        <button
+          onClick={swap}
+          aria-label="Swap timezones"
+          className="mt-1 self-center rounded-full border-2 border-foreground bg-card p-3 shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5 hover:rotate-180 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:mt-8"
+        >
+          <ArrowRightLeft className="h-4 w-4" />
+        </button>
+
+        <label className="block">
+          <span className="inline-flex rounded-full border-2 border-foreground bg-primary/15 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">
+            To
+          </span>
+          <select
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            aria-label="Convert to timezone"
+            className="mt-2 w-full rounded-xl border-2 border-foreground bg-card px-3 py-2.5 text-sm font-bold shadow-[3px_3px_0_0_var(--color-foreground)] outline-none focus:shadow-[4px_4px_0_0_var(--color-primary)]"
+          >
+            {zones.map((z) => <option key={z} value={z}>{z}{z === localTz ? " (your timezone)" : ""}</option>)}
+          </select>
+        </label>
       </div>
     </div>
   );

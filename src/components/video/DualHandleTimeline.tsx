@@ -70,19 +70,39 @@ export default function DualHandleTimeline({ file, duration, start, end, onChang
   const endPct = (end / duration) * 100;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {videoUrl && (
         // eslint-disable-next-line jsx-a11y/media-has-caption
-        <video ref={videoRef} src={videoUrl} controls className="w-full rounded-lg" />
+        <video
+          ref={videoRef}
+          src={videoUrl}
+          controls
+          className="w-full rounded-xl border-2 border-foreground shadow-[3px_3px_0_0_var(--color-foreground)]"
+        />
       )}
 
-      <div className="flex justify-between text-xs text-muted-foreground">
-        <span>Start: {formatTimecode(start)}</span>
-        <span>Duration: {formatTimecode(end - start)}</span>
-        <span>End: {formatTimecode(end)}</span>
+      <div className="flex flex-wrap justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-foreground bg-card px-2.5 py-1 text-xs font-bold">
+          <span className="rounded-full border-2 border-foreground bg-primary/15 px-1.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+            Start
+          </span>
+          {formatTimecode(start)}
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-foreground bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground shadow-[2px_2px_0_0_var(--color-foreground)]">
+          Duration {formatTimecode(end - start)}
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-foreground bg-card px-2.5 py-1 text-xs font-bold">
+          <span className="rounded-full border-2 border-foreground bg-primary/15 px-1.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+            End
+          </span>
+          {formatTimecode(end)}
+        </span>
       </div>
 
-      <div ref={trackRef} className="relative h-3 w-full rounded-full bg-secondary select-none touch-none">
+      <div
+        ref={trackRef}
+        className="relative h-3 w-full touch-none select-none rounded-full border-2 border-foreground bg-secondary"
+      >
         <div
           className="absolute h-full rounded-full bg-primary/40"
           style={{ left: `${startPct}%`, width: `${endPct - startPct}%` }}
@@ -94,7 +114,7 @@ export default function DualHandleTimeline({ file, duration, start, end, onChang
               key={handle}
               onMouseDown={() => setDragging(handle)}
               onTouchStart={() => setDragging(handle)}
-              className="absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-2 border-primary bg-background shadow active:cursor-grabbing"
+              className="absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none rounded-full border-2 border-foreground bg-primary shadow-[2px_2px_0_0_var(--color-foreground)] transition-transform hover:scale-110 active:cursor-grabbing"
               style={{ left: `${pct}%` }}
             />
           );
