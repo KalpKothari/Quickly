@@ -78,20 +78,24 @@ export default function CompressImage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Metadata and Reset Row */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border-2 border-foreground bg-card p-4 shadow-[3px_3px_0_0_var(--color-foreground)]">
-            <div className="space-y-1 max-w-full sm:max-w-[70%]">
-              <span className="text-[10px] font-bold uppercase text-foreground/50 block">Target Asset Source</span>
-              <div className="text-sm font-bold text-foreground truncate font-mono">
-                {files[0].name} ({formatBytes(files[0].size)})
+          {/* Metadata and Reset Row Capsule Pill Layout */}
+          <div className="rounded-full border-2 border-foreground bg-card p-2 pl-4 pr-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between shadow-[3px_3px_0_0_var(--color-foreground)]">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-primary/15 text-[11px] font-bold text-primary">
+                1
+              </span>
+              <div className="text-sm font-semibold text-foreground truncate font-mono">
+                {files[0].name}
+                <span className="text-muted-foreground font-normal"> ({formatBytes(files[0].size)})</span>
               </div>
             </div>
+            
             <button
               type="button"
               onClick={reset}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl border-2 border-foreground bg-destructive text-destructive-foreground px-4 py-2 text-sm font-bold transition-transform hover:-translate-y-0.5 shadow-[2px_2px_0_0_var(--color-foreground)]"
+              className="rounded-full border-2 border-foreground bg-destructive text-destructive-foreground px-4 py-1.5 text-xs font-bold shrink-0 shadow-[2px_2px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
             >
-              <RotateCcw className="h-4 w-4" /> Change Source
+              <RotateCcw className="h-3.5 w-3.5 inline mr-1" /> Change Source
             </button>
           </div>
 
@@ -153,15 +157,16 @@ export default function CompressImage() {
           {/* Real-time Result Metrics Display Panel */}
           {result && (
             <div className="rounded-2xl border-2 border-foreground bg-card p-5 shadow-[4px_4px_0_0_var(--color-foreground)] space-y-5">
-              <div className="grid grid-cols-3 gap-3">
+              {/* FIXED RESPONSIVENESS: Grid stacks into 1 column on mobile, changes to 3 on sm viewports */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="rounded-xl border-2 border-foreground bg-gradient-to-br from-violet-500/5 to-indigo-500/5 p-3 text-center shadow-[2px_2px_0_0_var(--color-foreground)]">
                   <div className="text-[9px] font-bold uppercase tracking-wide text-foreground/60">Original Size</div>
-                  <div className="text-lg font-bold tabular-nums mt-0.5">{formatBytes(result.originalSize)}</div>
+                  <div className="text-lg font-bold tabular-nums mt-0.5 break-words">{formatBytes(result.originalSize)}</div>
                 </div>
                 
                 <div className="rounded-xl border-2 border-foreground bg-gradient-to-br from-violet-500/5 to-indigo-500/5 p-3 text-center shadow-[2px_2px_0_0_var(--color-foreground)]">
                   <div className="text-[9px] font-bold uppercase tracking-wide text-foreground/60">Optimized</div>
-                  <div className="text-lg font-bold tabular-nums mt-0.5">{formatBytes(result.blob.size)}</div>
+                  <div className="text-lg font-bold tabular-nums mt-0.5 break-words">{formatBytes(result.blob.size)}</div>
                 </div>
 
                 <div className="rounded-xl border-2 border-foreground bg-emerald-500/10 p-3 text-center shadow-[2px_2px_0_0_var(--color-foreground)]">
@@ -177,8 +182,6 @@ export default function CompressImage() {
                 onClick={() => {
                   downloadBlob(result.blob, result.name);
                   toast.success("Image saved");
-                  
-                  // Trigger support prompt popup immediately following file download completion
                   showSupportPrompt();
                 }} 
                 className="w-full inline-flex items-center justify-center gap-2 rounded-xl border-2 border-foreground bg-primary px-5 py-3.5 text-base font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"

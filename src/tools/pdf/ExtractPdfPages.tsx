@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { PDFDocument } from "pdf-lib";
 import { toast } from "sonner";
-import { Download, FileOutput } from "lucide-react";
+import { Download, FileOutput, ExternalLink } from "lucide-react";
 import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob } from "@/lib/format";
 import { useSupportPrompt } from "@/hooks/useSupportPrompt";
@@ -54,7 +54,21 @@ export default function ExtractPdfPages() {
   const [busy, setBusy] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const previewUrlRef = useRef<string | null>(null);
+
+  // Mobile/touch browsers generally can't render a blob: PDF inline via
+  // <object>/<iframe> the way desktop browsers can with their built-in PDF
+  // viewer — it shows a native "refused to connect" error instead. Detect
+  // that up front and skip the broken embed there, offering an "open in new
+  // tab" button instead (a full navigation, which does work on mobile).
+  useEffect(() => {
+    const mq = window.matchMedia("(pointer: coarse)");
+    setIsTouchDevice(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsTouchDevice(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   const load = async (f: File) => { setPageCount((await PDFDocument.load(await f.arrayBuffer(), { ignoreEncryption: true })).getPageCount()); };
 
@@ -224,23 +238,66 @@ export default function ExtractPdfPages() {
           <div className="min-w-0 rounded-2xl border-2 border-foreground bg-secondary/30 p-3 shadow-[3px_3px_0_0_var(--color-foreground)] sm:shadow-[4px_4px_0_0_var(--color-foreground)]">
             <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Live preview</p>
-              {previewLoading && (
-                <span className="inline-flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  Updating…
-                </span>
-              )}
+              <div className="flex shrink-0 items-center gap-2">
+                {previewLoading && (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    Updating…
+                  </span>
+                )}
+                {previewUrl && !isTouchDevice && (
+                  <a
+                    href={previewUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 rounded-full border-2 border-foreground bg-card px-2 py-1 text-[11px] font-bold transition-transform hover:-translate-y-0.5"
+                  >
+                    <ExternalLink className="h-3 w-3" /> Open in new tab
+                  </a>
+                )}
+              </div>
             </div>
 
             {previewUrl ? (
-              <div className="w-full min-w-0 overflow-hidden rounded-xl border-2 border-foreground bg-white">
-                <iframe
-                  key={previewUrl}
-                  src={previewUrl}
-                  title="Extracted PDF preview"
-                  className="block h-[50vh] w-full max-w-full border-0 sm:h-[65vh] lg:h-[640px]"
-                />
-              </div>
+              isTouchDevice ? (
+                <div className="flex h-48 flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-foreground/30 p-6 text-center sm:h-64">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Inline preview isn't supported on mobile browsers — tap below to view it instead.
+                  </p>
+                  <a
+                    href={previewUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
+                  >
+                    <ExternalLink className="h-4 w-4" /> View extracted PDF
+                  </a>
+                </div>
+              ) : (
+                <div className="w-full min-w-0 overflow-hidden rounded-xl border-2 border-foreground bg-white">
+                  {/* object (not iframe) so a blocked/failed embed shows real fallback
+                      content instead of going silently blank under a strict
+                      Content-Security-Policy missing `blob:` in frame-src/object-src. */}
+                  <object
+                    key={previewUrl}
+                    data={previewUrl}
+                    type="application/pdf"
+                    className="block h-[50vh] w-full max-w-full sm:h-[65vh] lg:h-[640px]"
+                  >
+                    <div className="flex h-[50vh] flex-col items-center justify-center gap-3 p-6 text-center text-sm font-medium text-muted-foreground sm:h-[65vh] lg:h-[640px]">
+                      <p>Your browser blocked the inline preview.</p>
+                      <a
+                        href={previewUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
+                      >
+                        <ExternalLink className="h-4 w-4" /> Open the preview in a new tab
+                      </a>
+                    </div>
+                  </object>
+                </div>
+              )
             ) : (
               <div className="flex h-48 items-center justify-center rounded-xl border-2 border-dashed border-foreground/30 text-center text-sm font-medium text-muted-foreground sm:h-64">
                 Preparing preview…

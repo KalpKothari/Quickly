@@ -83,7 +83,7 @@ export const TOOLS: Tool[] = [
   { slug: "crop-video", name: "Crop Video", description: "Crop video to a new frame.", category: "video", icon: Crop, status: "live" },
   { slug: "rotate-video", name: "Rotate Video", description: "Rotate video 90/180/270 degrees.", category: "video", icon: RotateCw, status: "live" },
   { slug: "merge-video", name: "Merge Videos", description: "Concatenate multiple videos.", category: "video", icon: Merge, status: "live" },
-  { slug: "split-video", name: "Split Video", description: "Split a video into segments.", category: "video", icon: ScissorsSquare, status: "live" },
+  { slug: "split-video", name: "Split Video", description: "Split a video into segments.", category: "video", icon: ScissorsSquare, status: "soon" },
   { slug: "video-to-images", name: "Video to Images", description: "Extract frames from a video.", category: "video", icon: Film, status: "soon" },
   { slug: "remove-audio", name: "Remove Audio", description: "Mute a video's audio track.", category: "video", icon: VolumeX, status: "live" },
   { slug: "extract-audio", name: "Extract Audio", description: "Save a video's audio as MP3.", category: "video", icon: Music, status: "live" },

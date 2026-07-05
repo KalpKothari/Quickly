@@ -40,7 +40,6 @@ const PlaybackSpeed = lazy(() => import("./video/PlaybackSpeed"));
 const ReverseVideo = lazy(() => import("./video/ReverseVideo"));
 const LoopVideo = lazy(() => import("./video/LoopVideo"));
 const TrimVideo = lazy(() => import("./video/TrimVideo"));
-const SplitVideo = lazy(() => import("./video/SplitVideo"));
 const CropVideo = lazy(() => import("./video/CropVideo"));
 const MergeVideos = lazy(() => import("./video/MergeVideos"));
 
@@ -102,7 +101,6 @@ export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
   "reverse-video": ReverseVideo,
   "loop-video": LoopVideo,
   "trim-video": TrimVideo,
-  "split-video": SplitVideo,
   "crop-video": CropVideo,
   "merge-video": MergeVideos,
 

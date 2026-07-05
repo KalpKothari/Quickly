@@ -180,26 +180,29 @@ export function Header() {
             </div>
           </div>
         </div>
-      </header>
 
-      {mobileOpen && (
-        <div className="border-t-2 border-foreground bg-background lg:hidden">
-          <nav className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-3">
-            {CATEGORIES.map((c, i) => (
-              <Link
-                key={c.id}
-                to="/$category"
-                params={{ category: c.slug }}
-                className="flex items-center gap-3 rounded-lg border-2 border-foreground bg-card px-3 py-2.5 text-sm font-bold text-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
-                style={{ transform: `rotate(${i % 2 === 0 ? "-0.6deg" : "0.6deg"})` }}
-              >
-                <c.icon className="h-4 w-4" style={{ color: `var(--color-${c.color})` }} />
-                {c.name}
-              </Link>
-            ))}
-          </nav>
-        </div>
-      )}
+        {/* Mobile menu panel — now INSIDE the sticky header, so it scrolls
+            with it and stays visible no matter where you've scrolled to,
+            instead of being left behind by the page underneath. */}
+        {mobileOpen && (
+          <div className="border-t-2 border-foreground bg-background lg:hidden">
+            <nav className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-3">
+              {CATEGORIES.map((c, i) => (
+                <Link
+                  key={c.id}
+                  to="/$category"
+                  params={{ category: c.slug }}
+                  className="flex items-center gap-3 rounded-lg border-2 border-foreground bg-card px-3 py-2.5 text-sm font-bold text-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
+                  style={{ transform: `rotate(${i % 2 === 0 ? "-0.6deg" : "0.6deg"})` }}
+                >
+                  <c.icon className="h-4 w-4" style={{ color: `var(--color-${c.color})` }} />
+                  {c.name}
+                </Link>
+              ))}
+            </nav>
+          </div>
+        )}
+      </header>
 
       <SearchPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </>

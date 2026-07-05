@@ -4,8 +4,16 @@ import { toBlobURL, fetchFile } from "@ffmpeg/util";
 let ffmpegInstance: FFmpeg | null = null;
 let loadPromise: Promise<FFmpeg> | null = null;
 
+// Self-hosted from /public/ffmpeg-core so requests are same-origin. This app sets
+// Cross-Origin-Embedder-Policy: require-corp, which requires every cross-origin resource to
+// send back a matching Cross-Origin-Resource-Policy header — third-party CDNs (e.g. unpkg)
+// don't reliably do this for the .wasm file, so under strict COEP enforcement the fetch can be
+// silently blocked or badly delayed. Same-origin files sidestep that requirement entirely.
+//
+// To set this up: copy the contents of node_modules/@ffmpeg/core/dist/esm/
+// (ffmpeg-core.js, ffmpeg-core.wasm) into public/ffmpeg-core/ in this project.
 const CORE_VERSION = "0.12.6";
-const BASE_URL = `https://unpkg.com/@ffmpeg/core@${CORE_VERSION}/dist/esm`;
+const BASE_URL = "/ffmpeg-core";
 
 export function isMobileDevice(): boolean {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -21,6 +29,14 @@ export function formatBytes(bytes: number): string {
 }
 
 export async function getFFmpeg(onLog?: (msg: string) => void): Promise<FFmpeg> {
+  // A previously loaded instance can go dead behind our backs (e.g. terminated after a
+  // cancelled job, or torn down by the browser under memory pressure on mobile). Reusing it
+  // as-is is what causes "ffmpeg is not loaded, call load() first" — so check `.loaded` and
+  // discard it if it's no longer actually usable, instead of trusting the cached reference.
+  if (ffmpegInstance && !ffmpegInstance.loaded) {
+    ffmpegInstance = null;
+    loadPromise = null;
+  }
   if (ffmpegInstance) return ffmpegInstance;
   if (loadPromise) return loadPromise;
 
@@ -30,10 +46,18 @@ export async function getFFmpeg(onLog?: (msg: string) => void): Promise<FFmpeg> 
       ffmpeg.on("log", ({ message }) => onLog(message));
     }
 
-    const coreURL = await toBlobURL(`${BASE_URL}/ffmpeg-core.js`, "text/javascript");
-    const wasmURL = await toBlobURL(`${BASE_URL}/ffmpeg-core.wasm`, "application/wasm");
+    try {
+      const coreURL = await toBlobURL(`${BASE_URL}/ffmpeg-core.js`, "text/javascript");
+      const wasmURL = await toBlobURL(`${BASE_URL}/ffmpeg-core.wasm`, "application/wasm");
+      await ffmpeg.load({ coreURL, wasmURL });
+    } catch (err) {
+      // Don't cache a failed load — clear it so the next attempt actually retries instead of
+      // permanently replaying the same rejected promise (this was the cause of the load
+      // getting stuck forever on "Loading video engine…" after any transient failure).
+      loadPromise = null;
+      throw err;
+    }
 
-    await ffmpeg.load({ coreURL, wasmURL });
     ffmpegInstance = ffmpeg;
     return ffmpeg;
   })();
