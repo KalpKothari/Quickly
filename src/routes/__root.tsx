@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -16,6 +17,7 @@ import { Footer } from "../components/layout/Footer";
 import { Toaster } from "sonner";
 import { useTheme } from "../lib/stores";
 import { SupportProjectModal } from "@/components/support/SupportProjectModal";
+import { GA_MEASUREMENT_ID, trackPageView } from "@/lib/analytics";
 
 function NotFoundComponent() {
   return (
@@ -112,6 +114,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" },
     ],
     scripts: [
+      // Google Analytics (GA4) — loads gtag.js and initializes it.
+      // send_page_view is off because the route-change tracker in RootComponent
+      // (which also fires on initial mount) sends that first pageview itself,
+      // avoiding a double-count on load.
+      { src: `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`, async: true },
+      {
+        children: `
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          window.gtag = gtag;
+          gtag('js', new Date());
+          gtag('config', '${GA_MEASUREMENT_ID}', { send_page_view: false });
+        `,
+      },
       {
         type: "application/ld+json",
         children: JSON.stringify({
@@ -150,6 +166,13 @@ function RootComponent() {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
+
+  // GA4 page_view — fires once on initial mount and again on every
+  // client-side route change (home, categories, tool pages, etc.).
+  const path = useRouterState({ select: (s) => s.location.pathname });
+  useEffect(() => {
+    trackPageView(path);
+  }, [path]);
 
   return (
     <QueryClientProvider client={queryClient}>
