@@ -77,20 +77,19 @@ export const TOOLS: Tool[] = [
   { slug: "qr-code", name: "QR Code Generator", description: "Generate high-quality QR codes.", category: "image", icon: QrCode, status: "live", featured: true },
   { slug: "background-remover", name: "Background Remover", description: "Remove image backgrounds automatically.", category: "image", icon: Eraser, status: "soon" },
 
-  // Video
-  { slug: "compress-video", name: "Compress Video", description: "Shrink video files.", category: "video", icon: FileArchive, status: "live" },
-  { slug: "trim-video", name: "Trim Video", description: "Cut a video to a specific range.", category: "video", icon: Scissors, status: "live" },
-  { slug: "crop-video", name: "Crop Video", description: "Crop video to a new frame.", category: "video", icon: Crop, status: "live" },
-  { slug: "rotate-video", name: "Rotate Video", description: "Rotate video 90/180/270 degrees.", category: "video", icon: RotateCw, status: "live" },
-  { slug: "merge-video", name: "Merge Videos", description: "Concatenate multiple videos.", category: "video", icon: Merge, status: "live" },
+// Video
+  { slug: "compress-video", name: "Compress Video", description: "Shrink video files.", category: "video", icon: FileArchive, status: "soon" },
+  { slug: "trim-video", name: "Trim Video", description: "Cut a video to a specific range.", category: "video", icon: Scissors, status: "soon" },
+  { slug: "crop-video", name: "Crop Video", description: "Crop video to a new frame.", category: "video", icon: Crop, status: "soon" },
+  { slug: "rotate-video", name: "Rotate Video", description: "Rotate video 90/180/270 degrees.", category: "video", icon: RotateCw, status: "soon" },
+  { slug: "merge-video", name: "Merge Videos", description: "Concatenate multiple videos.", category: "video", icon: Merge, status: "soon" },
   { slug: "split-video", name: "Split Video", description: "Split a video into segments.", category: "video", icon: ScissorsSquare, status: "soon" },
   { slug: "video-to-images", name: "Video to Images", description: "Extract frames from a video.", category: "video", icon: Film, status: "soon" },
-  { slug: "remove-audio", name: "Remove Audio", description: "Mute a video's audio track.", category: "video", icon: VolumeX, status: "live" },
-  { slug: "extract-audio", name: "Extract Audio", description: "Save a video's audio as MP3.", category: "video", icon: Music, status: "live" },
-  { slug: "playback-speed", name: "Playback Speed", description: "Speed up or slow down a video.", category: "video", icon: PlayCircle, status: "live" },
-  { slug: "reverse-video", name: "Reverse Video", description: "Play a video in reverse.", category: "video", icon: Rewind, status: "live" },
-  { slug: "loop-video", name: "Loop Video", description: "Loop a video multiple times.", category: "video", icon: InfinityIcon, status: "live" },
-  
+  { slug: "remove-audio", name: "Remove Audio", description: "Mute a video's audio track.", category: "video", icon: VolumeX, status: "soon" },
+  { slug: "extract-audio", name: "Extract Audio", description: "Save a video's audio as MP3.", category: "video", icon: Music, status: "soon" },
+  { slug: "playback-speed", name: "Playback Speed", description: "Speed up or slow down a video.", category: "video", icon: PlayCircle, status: "soon" },
+  { slug: "reverse-video", name: "Reverse Video", description: "Play a video in reverse.", category: "video", icon: Rewind, status: "soon" },
+  { slug: "loop-video", name: "Loop Video", description: "Loop a video multiple times.", category: "video", icon: InfinityIcon, status: "soon" },
   // Audio
   { slug: "trim-audio", name: "Trim Audio", description: "Cut a specific range from an audio file.", category: "audio", icon: Scissors, status: "live" },
   { slug: "merge-audio", name: "Merge Audio", description: "Combine multiple audio files.", category: "audio", icon: Merge, status: "live" },

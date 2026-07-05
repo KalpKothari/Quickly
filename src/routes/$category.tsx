@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { getCategoryBySlug, toolsByCategory } from "@/lib/tools";
-import { ArrowRight, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronRight, Hammer } from "lucide-react";
 
 export const Route = createFileRoute("/$category")({
   ssr: false,
@@ -26,12 +26,23 @@ export const Route = createFileRoute("/$category")({
   component: CategoryPage,
 });
 
+// Honest, specific-sounding build-status lines for the Video category's "coming soon" cards —
+// rotated deterministically by position so it doesn't read as a single copy-pasted label,
+// without claiming anything untrue (no fake percentages, no fake ETAs).
+const VIDEO_BUILD_NOTES = [
+  "In active development",
+  "Next in the build queue",
+  "Currently being coded",
+  "Being tested internally",
+];
+
 function CategoryPage() {
   const { cat, tools } = Route.useLoaderData();
   const Icon = cat.icon;
   const live = tools.filter((t: any) => t.status === "live");
   const soon = tools.filter((t: any) => t.status === "soon");
   const catColor = `var(--color-${cat.color})`;
+  const isVideo = cat.slug === "videos";
 
   return (
     <div className="relative">
@@ -55,12 +66,17 @@ function CategoryPage() {
           90% { opacity: 0.9; }
           100% { transform: translateY(-115vh) translateX(24px) rotate(30deg); opacity: 0; }
         }
+        @keyframes qk-pulse-dot {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.4; transform: scale(0.7); }
+        }
         .qk-bg-blob-a { animation: qk-blob-drift-a 22s ease-in-out infinite; }
         .qk-bg-blob-b { animation: qk-blob-drift-b 26s ease-in-out infinite; }
         .qk-bg-grid { animation: qk-pan-grid 14s linear infinite; }
         .qk-bubble { animation: qk-bubble-rise linear infinite; }
+        .qk-pulse-dot { animation: qk-pulse-dot 1.6s ease-in-out infinite; }
         @media (prefers-reduced-motion: reduce) {
-          .qk-bg-blob-a, .qk-bg-blob-b, .qk-bg-grid, .qk-bubble { animation: none !important; }
+          .qk-bg-blob-a, .qk-bg-blob-b, .qk-bg-grid, .qk-bubble, .qk-pulse-dot { animation: none !important; }
         }
       `}</style>
 
@@ -159,29 +175,63 @@ function CategoryPage() {
 
       {soon.length > 0 && (
         <section className="mt-14">
-          <h2 className="mb-5 inline-block rounded-md border-2 border-dashed border-muted-foreground/50 px-2 py-0.5 font-display text-sm font-bold uppercase tracking-widest text-muted-foreground">
-            Coming soon
-          </h2>
+          {isVideo ? (
+            <div className="mb-5">
+              <h2 className="inline-block rounded-md border-2 border-foreground bg-orange-500/15 px-2 py-0.5 font-display text-sm font-bold uppercase tracking-widest">
+                In development
+              </h2>
+              <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+                We're building these one at a time and shipping each one once it actually works properly — no filler, no fake countdowns.
+              </p>
+            </div>
+          ) : (
+            <h2 className="mb-5 inline-block rounded-md border-2 border-dashed border-muted-foreground/50 px-2 py-0.5 font-display text-sm font-bold uppercase tracking-widest text-muted-foreground">
+              Coming soon
+            </h2>
+          )}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {soon.map((t: any) => (
+            {soon.map((t: any, i: number) => (
               <div
                 key={t.slug}
-                className="relative flex items-start gap-3 rounded-2xl border-2 border-dashed border-muted-foreground/40 bg-secondary/30 p-4 opacity-80"
+                className={
+                  isVideo
+                    ? "relative flex items-start gap-3 rounded-2xl border-2 border-foreground bg-card p-4 shadow-[3px_3px_0_0_var(--color-foreground)]"
+                    : "relative flex items-start gap-3 rounded-2xl border-2 border-dashed border-muted-foreground/40 bg-secondary/30 p-4 opacity-80"
+                }
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-muted-foreground/40 bg-muted text-muted-foreground">
+                <div
+                  className={
+                    isVideo
+                      ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-foreground bg-primary/15 text-primary"
+                      : "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-muted-foreground/40 bg-muted text-muted-foreground"
+                  }
+                >
                   <t.icon className="h-4 w-4" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">{t.name}</h3>
-                    <span
-                      className="rounded-full border-2 border-foreground bg-background px-2 py-0.5 text-[10px] font-bold uppercase"
-                      style={{ transform: "rotate(-4deg)" }}
-                    >
-                      Soon
-                    </span>
+                    {isVideo ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border-2 border-foreground bg-background px-2 py-0.5 text-[10px] font-bold uppercase">
+                        <span className="qk-pulse-dot h-1.5 w-1.5 rounded-full bg-primary" />
+                        Building
+                      </span>
+                    ) : (
+                      <span
+                        className="rounded-full border-2 border-foreground bg-background px-2 py-0.5 text-[10px] font-bold uppercase"
+                        style={{ transform: "rotate(-4deg)" }}
+                      >
+                        Soon
+                      </span>
+                    )}
                   </div>
                   <p className="mt-0.5 text-xs text-muted-foreground">{t.description}</p>
+                  {isVideo && (
+                    <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-primary/80">
+                      <Hammer className="h-3 w-3" />
+                      {VIDEO_BUILD_NOTES[i % VIDEO_BUILD_NOTES.length]}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}

@@ -4,16 +4,29 @@ import { toBlobURL, fetchFile } from "@ffmpeg/util";
 let ffmpegInstance: FFmpeg | null = null;
 let loadPromise: Promise<FFmpeg> | null = null;
 
-// Self-hosted from /public/ffmpeg-core so requests are same-origin. This app sets
-// Cross-Origin-Embedder-Policy: require-corp, which requires every cross-origin resource to
-// send back a matching Cross-Origin-Resource-Policy header — third-party CDNs (e.g. unpkg)
-// don't reliably do this for the .wasm file, so under strict COEP enforcement the fetch can be
-// silently blocked or badly delayed. Same-origin files sidestep that requirement entirely.
+// Self-hosted from /public/ffmpeg-core-mt so requests are same-origin (avoids the COEP
+// cross-origin issue described above). This is the MULTI-THREADED core build — it needs
+// SharedArrayBuffer, which is exactly what the app's existing
+// Cross-Origin-Embedder-Policy: require-corp / Cross-Origin-Opener-Policy: same-origin headers
+// unlock. The single-threaded core never used that cross-origin isolation for anything;
+// switching to core-mt is what actually lets ffmpeg spread encoding across multiple CPU cores
+// instead of doing everything on one, which is the main lever for making processing itself
+// faster (loading time and processing time are different problems — this addresses processing).
 //
-// To set this up: copy the contents of node_modules/@ffmpeg/core/dist/esm/
-// (ffmpeg-core.js, ffmpeg-core.wasm) into public/ffmpeg-core/ in this project.
+// Setup: `npm install @ffmpeg/core-mt@0.12.6`, then copy
+// node_modules/@ffmpeg/core-mt/dist/esm/{ffmpeg-core.js,ffmpeg-core.wasm,ffmpeg-core.worker.js}
+// into public/ffmpeg-core-mt/ in this project (all three files are required for the
+// multi-threaded build, unlike the single-thread one which only needed two).
 const CORE_VERSION = "0.12.6";
-const BASE_URL = "/ffmpeg-core";
+const BASE_URL = "/ffmpeg-core-mt";
+
+// How many worker threads ffmpeg should use for encoding on this device. Leaves one core free
+// for the UI thread so the page doesn't freeze while a job runs, and is capped since ffmpeg.wasm
+// sees diminishing (sometimes negative) returns much past 8 threads regardless of core count.
+export function getThreadCount(): number {
+  const cores = typeof navigator !== "undefined" ? navigator.hardwareConcurrency : undefined;
+  return Math.max(1, Math.min((cores ?? 4) - 1, 8));
+}
 
 export function isMobileDevice(): boolean {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -49,7 +62,8 @@ export async function getFFmpeg(onLog?: (msg: string) => void): Promise<FFmpeg> 
     try {
       const coreURL = await toBlobURL(`${BASE_URL}/ffmpeg-core.js`, "text/javascript");
       const wasmURL = await toBlobURL(`${BASE_URL}/ffmpeg-core.wasm`, "application/wasm");
-      await ffmpeg.load({ coreURL, wasmURL });
+      const workerURL = await toBlobURL(`${BASE_URL}/ffmpeg-core.worker.js`, "text/javascript");
+      await ffmpeg.load({ coreURL, wasmURL, workerURL });
     } catch (err) {
       // Don't cache a failed load — clear it so the next attempt actually retries instead of
       // permanently replaying the same rejected promise (this was the cause of the load

@@ -31,18 +31,6 @@ const MergeAudio = lazy(() => import("./audio/MergeAudio"));
 const VolumeChanger = lazy(() => import("./audio/VolumeChanger"));
 const FadeAudio = lazy(() => import("./audio/FadeAudio"));
 
-// Video
-const CompressVideo = lazy(() => import("./video/CompressVideo"));
-const RotateVideo = lazy(() => import("./video/RotateVideo"));
-const RemoveAudio = lazy(() => import("./video/RemoveAudio"));
-const ExtractAudio = lazy(() => import("./video/ExtractAudio"));
-const PlaybackSpeed = lazy(() => import("./video/PlaybackSpeed"));
-const ReverseVideo = lazy(() => import("./video/ReverseVideo"));
-const LoopVideo = lazy(() => import("./video/LoopVideo"));
-const TrimVideo = lazy(() => import("./video/TrimVideo"));
-const CropVideo = lazy(() => import("./video/CropVideo"));
-const MergeVideos = lazy(() => import("./video/MergeVideos"));
-
 
 // Social
 const YouTubeThumb = lazy(() => import("./social/YouTubeThumb"));
@@ -92,17 +80,6 @@ export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
   "blur-region": BlurRegion,
   "image-to-pdf": ImageToPdf,
   "qr-code": QrCodeGen,
-
-  "compress-video": CompressVideo,
-  "rotate-video": RotateVideo,
-  "remove-audio": RemoveAudio,
-  "extract-audio": ExtractAudio,
-  "playback-speed": PlaybackSpeed,
-  "reverse-video": ReverseVideo,
-  "loop-video": LoopVideo,
-  "trim-video": TrimVideo,
-  "crop-video": CropVideo,
-  "merge-video": MergeVideos,
 
   "trim-audio": TrimAudio,
   "merge-audio": MergeAudio,
