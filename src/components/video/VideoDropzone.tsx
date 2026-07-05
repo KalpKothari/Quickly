@@ -1,6 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { UploadCloud } from "lucide-react";
-import { getMaxFileSizeBytes, formatBytes } from "@/lib/ffmpeg-core";
+import { getMaxFileSizeBytes, formatBytes, prefetchFFmpeg } from "@/lib/ffmpeg-core";
 import { toast } from "sonner";
 
 interface VideoDropzoneProps {
@@ -11,6 +11,13 @@ interface VideoDropzoneProps {
 
 export default function VideoDropzone({ onFile, accept = "video/*", label = "Drop a video here, or click to browse" }: VideoDropzoneProps) {
   const [dragOver, setDragOver] = useState(false);
+
+  // Start loading the video engine as soon as this screen is shown, not only after a file is
+  // dropped — by the time a file is picked, the ~25MB engine download is often already well
+  // underway (or finished), instead of the entire wait appearing after the drop.
+  useEffect(() => {
+    prefetchFFmpeg();
+  }, []);
 
   const handleFile = useCallback(
     (file: File) => {

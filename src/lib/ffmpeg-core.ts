@@ -65,6 +65,17 @@ export async function getFFmpeg(onLog?: (msg: string) => void): Promise<FFmpeg> 
   return loadPromise;
 }
 
+// Fire-and-forget warm-up: call this as soon as a video tool screen mounts (before the user has
+// even picked a file) so the ~25MB engine download is already in flight — or finished — by the
+// time they actually need it, instead of the entire wait appearing only after they drop a file.
+// Errors are swallowed here; the real error will surface naturally the next time getFFmpeg() is
+// awaited for an actual job.
+export function prefetchFFmpeg(): void {
+  getFFmpeg().catch(() => {
+    /* handled on next real getFFmpeg() call */
+  });
+}
+
 export { fetchFile };
 
 // Extracts a clean extension from a filename, defaulting sensibly.
