@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Download, FileOutput } from "lucide-react";
 import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob } from "@/lib/format";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 // Same page-list parsing as before, just extracted into a function so the
 // live preview and the final download can both call it identically.
@@ -45,6 +46,7 @@ async function buildExtractedPdf(file: File, pagesStr: string): Promise<Blob> {
 }
 
 export default function ExtractPdfPages() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [files, setFiles] = useState<File[]>([]);
   const [pageCount, setPageCount] = useState(0);
   const [pages, setPages] = useState("1-3");
@@ -109,6 +111,9 @@ export default function ExtractPdfPages() {
       const blob = await buildExtractedPdf(files[0], pages);
       downloadBlob(blob, "extracted.pdf");
       toast.success("Extracted");
+
+      // Trigger support prompt popup immediately following file download completion
+      showSupportPrompt();
     } catch {
       toast.error("Failed");
     } finally {
@@ -155,12 +160,14 @@ export default function ExtractPdfPages() {
 
             <div className="flex flex-wrap items-center justify-end gap-1.5">
               <button
+                type="button"
                 onClick={() => setPages(numbersToRangeString(Array.from({ length: pageCount }, (_, i) => i + 1)))}
                 className="rounded-full border-2 border-foreground bg-background px-2.5 py-1 text-xs font-bold transition-transform hover:-translate-y-0.5"
               >
                 Select all
               </button>
               <button
+                type="button"
                 onClick={() => setPages("")}
                 className="rounded-full border-2 border-foreground bg-background px-2.5 py-1 text-xs font-bold transition-transform hover:-translate-y-0.5"
               >
@@ -172,6 +179,7 @@ export default function ExtractPdfPages() {
               {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
                 <button
                   key={n}
+                  type="button"
                   onClick={() => togglePage(n)}
                   aria-pressed={selected.has(n)}
                   aria-label={`Page ${n}${selected.has(n) ? ", selected to extract" : ""}`}
@@ -203,6 +211,7 @@ export default function ExtractPdfPages() {
             </details>
 
             <button
+              type="button"
               onClick={run}
               disabled={busy}
               className="inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-foreground bg-primary px-5 py-3 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform enabled:hover:-translate-y-0.5 enabled:hover:shadow-[5px_5px_0_0_var(--color-foreground)] disabled:cursor-not-allowed disabled:opacity-50"

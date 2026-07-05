@@ -4,10 +4,12 @@ import { Download } from "lucide-react";
 import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob } from "@/lib/format";
 import { loadImage, canvasToBlob } from "./_canvas";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 type Handle = "move" | "nw" | "ne" | "sw" | "se";
 
 export default function BlurRegion() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [files, setFiles] = useState<File[]>([]);
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [region, setRegion] = useState({ x: 25, y: 25, w: 40, h: 30 }); // unchanged state shape
@@ -35,6 +37,9 @@ export default function BlurRegion() {
     if (!canvasRef.current) return;
     const b = await canvasToBlob(canvasRef.current, "image/png");
     downloadBlob(b, "blurred.png"); toast.success("Downloaded");
+    
+    // Trigger support prompt popup immediately following file download completion
+    showSupportPrompt();
   };
 
   const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
@@ -182,6 +187,7 @@ export default function BlurRegion() {
 
           {/* STEP 3 — download */}
           <button
+            type="button"
             onClick={run}
             className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5 hover:shadow-[5px_5px_0_0_var(--color-foreground)]"
           >

@@ -3,8 +3,10 @@ import { toast } from "sonner";
 import { Scissors, UploadCloud, RotateCcw } from "lucide-react";
 import { decodeAudioFile, trimBuffer, audioBufferToWavBlob, downloadBlob, formatTime } from "@/lib/audio-tools";
 import AudioPreview from "@/components/audio/AudioPreview";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 export default function TrimAudio() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [file, setFile] = useState<File | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null);
@@ -57,6 +59,9 @@ export default function TrimAudio() {
     if (!previewBlob) return;
     downloadBlob(previewBlob, `${file?.name.replace(/\.[^.]+$/, "") || "trimmed"}-trimmed.wav`);
     toast.success("Downloaded");
+    
+    // Trigger support prompt popup immediately following file download completion
+    showSupportPrompt();
   };
 
   const resetSelection = () => {
@@ -170,6 +175,7 @@ export default function TrimAudio() {
               Drag the handles to pick what to keep
             </p>
             <button
+              type="button"
               onClick={resetSelection}
               className="inline-flex items-center gap-1.5 rounded-full border-2 border-foreground bg-background px-2.5 py-1 text-[11px] font-bold text-muted-foreground transition-transform hover:-translate-y-0.5 hover:text-foreground"
             >
@@ -228,6 +234,7 @@ export default function TrimAudio() {
           </div>
 
           <button
+            type="button"
             onClick={handleTrim}
             disabled={!selectionValid}
             className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform enabled:hover:-translate-y-0.5 enabled:hover:shadow-[5px_5px_0_0_var(--color-foreground)] disabled:cursor-not-allowed disabled:opacity-50"

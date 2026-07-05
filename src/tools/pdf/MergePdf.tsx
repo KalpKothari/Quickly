@@ -5,6 +5,7 @@ import { Download, ArrowUp, ArrowDown, ArrowRight, FileText } from "lucide-react
 import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob, formatBytes } from "@/lib/format";
 import { useRecent } from "@/lib/stores";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 // The one place the actual merge happens — used for both the live preview
 // and the final download, so what you preview is exactly what you get.
@@ -20,6 +21,7 @@ async function buildMergedPdf(files: File[]): Promise<Blob> {
 }
 
 export default function MergePdf() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -87,6 +89,9 @@ export default function MergePdf() {
         at: Date.now(),
       });
       toast.success("Merged");
+
+      // Trigger support prompt popup immediately following file download completion
+      showSupportPrompt();
     } catch {
       toast.error("Merge failed. Check that files are valid PDFs.");
     } finally {
@@ -135,6 +140,7 @@ export default function MergePdf() {
                   <span className="hidden shrink-0 text-xs font-medium text-muted-foreground sm:inline">{formatBytes(f.size)}</span>
                   <span className="flex shrink-0 items-center gap-1">
                     <button
+                      type="button"
                       onClick={() => move(i, -1)}
                       disabled={i === 0}
                       className="rounded-full border-2 border-foreground bg-card p-1.5 transition-transform enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-30"
@@ -143,6 +149,7 @@ export default function MergePdf() {
                       <ArrowUp className="h-3.5 w-3.5" />
                     </button>
                     <button
+                      type="button"
                       onClick={() => move(i, 1)}
                       disabled={i === files.length - 1}
                       className="rounded-full border-2 border-foreground bg-card p-1.5 transition-transform enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-30"
@@ -174,6 +181,7 @@ export default function MergePdf() {
             )}
 
             <button
+              type="button"
               onClick={run}
               disabled={files.length < 2 || busy}
               className="inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-foreground bg-primary px-5 py-3 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform enabled:hover:-translate-y-0.5 enabled:hover:shadow-[5px_5px_0_0_var(--color-foreground)] disabled:cursor-not-allowed disabled:opacity-50"

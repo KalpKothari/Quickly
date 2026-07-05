@@ -1,16 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PDFDocument } from "pdf-lib";
 import JSZip from "jszip";
 import { toast } from "sonner";
 import { Download, FileText, RotateCcw } from "lucide-react";
 import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob } from "@/lib/format";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 function allPagesRanges(count: number) {
   return Array.from({ length: count }, (_, i) => `${i + 1}-${i + 1}`).join(", ");
 }
 
 export default function SplitPdf() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [pageCount, setPageCount] = useState(0);
@@ -66,6 +68,9 @@ export default function SplitPdf() {
         downloadBlob(zipBlob, "split.zip");
         toast.success("Split into " + parts.length + " files wrapped in ZIP");
       }
+
+      // Trigger support prompt popup immediately following file generation operations
+      showSupportPrompt();
     } catch { 
       toast.error("Split failed"); 
     } finally { 

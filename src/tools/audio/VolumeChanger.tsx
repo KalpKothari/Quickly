@@ -3,8 +3,10 @@ import { toast } from "sonner";
 import { Volume2, UploadCloud } from "lucide-react";
 import { decodeAudioFile, applyVolume, audioBufferToWavBlob, downloadBlob } from "@/lib/audio-tools";
 import AudioPreview from "@/components/audio/AudioPreview";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 export default function VolumeChanger() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [file, setFile] = useState<File | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [percent, setPercent] = useState(100);
@@ -42,6 +44,9 @@ export default function VolumeChanger() {
     if (!previewBlob || !file) return;
     downloadBlob(previewBlob, `${file.name.replace(/\.[^.]+$/, "")}-volume.wav`);
     toast.success("Downloaded");
+    
+    // Trigger support prompt popup immediately following file download completion
+    showSupportPrompt();
   };
 
   const pickFile = (f: File | null) => {
@@ -166,6 +171,7 @@ export default function VolumeChanger() {
           )}
 
           <button
+            type="button"
             onClick={handleApply}
             disabled={busy}
             className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform enabled:hover:-translate-y-0.5 enabled:hover:shadow-[5px_5px_0_0_var(--color-foreground)] disabled:cursor-not-allowed disabled:opacity-50"

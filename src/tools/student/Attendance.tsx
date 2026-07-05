@@ -1,10 +1,36 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Plus, Minus, CalendarCheck, CalendarX } from "lucide-react";
 
 export default function Attendance() {
-  const [attended, setAttended] = useState(45);
-  const [total, setTotal] = useState(60);
-  const [required, setRequired] = useState(75);
+  // Initialize state hooks straight from localStorage with fallback defaults
+  const [attended, setAttended] = useState<number>(() => {
+    const saved = localStorage.getItem("attendance_attended");
+    return saved !== null ? Number(saved) : 45;
+  });
+
+  const [total, setTotal] = useState<number>(() => {
+    const saved = localStorage.getItem("attendance_total");
+    return saved !== null ? Number(saved) : 60;
+  });
+
+  const [required, setRequired] = useState<number>(() => {
+    const saved = localStorage.getItem("attendance_required");
+    return saved !== null ? Number(saved) : 75;
+  });
+
+  // Automatically sync values to localStorage whenever they are modified
+  useEffect(() => {
+    localStorage.setItem("attendance_attended", String(attended));
+  }, [attended]);
+
+  useEffect(() => {
+    localStorage.setItem("attendance_total", String(total));
+  }, [total]);
+
+  useEffect(() => {
+    localStorage.setItem("attendance_required", String(required));
+  }, [required]);
+
   const res = useMemo(() => {
     const pct = total ? (attended / total) * 100 : 0;
     const threshold = required / 100;

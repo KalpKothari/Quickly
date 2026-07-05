@@ -3,10 +3,12 @@ import { toast } from "sonner";
 import { Waves, UploadCloud } from "lucide-react";
 import { decodeAudioFile, applyFade, audioBufferToWavBlob, downloadBlob } from "@/lib/audio-tools";
 import AudioPreview from "@/components/audio/AudioPreview";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 type Direction = "in" | "out" | "both";
 
 export default function FadeAudio() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [file, setFile] = useState<File | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [direction, setDirection] = useState<Direction>("in");
@@ -52,6 +54,9 @@ export default function FadeAudio() {
     if (!previewBlob || !file) return;
     downloadBlob(previewBlob, `${file.name.replace(/\.[^.]+$/, "")}-fade-${direction}.wav`);
     toast.success("Downloaded");
+    
+    // Trigger support prompt popup immediately following file download completion
+    showSupportPrompt();
   };
 
   const pickFile = (f: File | null) => {
@@ -135,6 +140,7 @@ export default function FadeAudio() {
             {(["in", "out", "both"] as Direction[]).map((d) => (
               <button
                 key={d}
+                type="button"
                 onClick={() => {
                   setDirection(d);
                   setPreviewBlob(null);
@@ -166,6 +172,7 @@ export default function FadeAudio() {
           </label>
 
           <button
+            type="button"
             onClick={handleApply}
             disabled={busy}
             className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform enabled:hover:-translate-y-0.5 enabled:hover:shadow-[5px_5px_0_0_var(--color-foreground)] disabled:cursor-not-allowed disabled:opacity-50"

@@ -4,11 +4,16 @@ import { Download } from "lucide-react";
 import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob } from "@/lib/format";
 import { loadImage, canvasToBlob } from "./_canvas";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
+
 const FORMATS = [{ v: "image/png", ext: "png" }, { v: "image/jpeg", ext: "jpg" }, { v: "image/webp", ext: "webp" }];
+
 export default function ConvertImage() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [files, setFiles] = useState<File[]>([]);
   const [target, setTarget] = useState("image/webp");
   const [q, setQ] = useState(0.9);
+
   const run = async () => {
     if (!files[0]) return;
     try {
@@ -22,8 +27,14 @@ export default function ConvertImage() {
       const ext = FORMATS.find((f) => f.v === target)!.ext;
       downloadBlob(blob, files[0].name.replace(/\.[^.]+$/, "") + "." + ext);
       toast.success("Converted & downloaded");
-    } catch { toast.error("Conversion failed"); }
+      
+      // Trigger support prompt popup immediately following file download completion
+      showSupportPrompt();
+    } catch { 
+      toast.error("Conversion failed"); 
+    }
   };
+
   return (
     <div className="space-y-6">
       <FileDrop accept="image/*" files={files} onFiles={setFiles} hint="PNG, JPG, WEBP, GIF" />
@@ -41,7 +52,7 @@ export default function ConvertImage() {
               </label>
             )}
           </div>
-          <button onClick={run} className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90">
+          <button type="button" onClick={run} className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90">
             <Download className="h-4 w-4" /> Convert & Download
           </button>
         </>

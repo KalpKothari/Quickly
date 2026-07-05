@@ -4,6 +4,7 @@ import { Download } from "lucide-react";
 import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob } from "@/lib/format";
 import { loadImage, canvasToBlob } from "./_canvas";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 const POSITION_PRESETS: { key: string; label: string; x: number; y: number }[] = [
   { key: "tl", label: "↖", x: 10, y: 10 },
@@ -16,6 +17,7 @@ const POSITION_PRESETS: { key: string; label: string; x: number; y: number }[] =
 ];
 
 export default function AddTextImage() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [files, setFiles] = useState<File[]>([]);
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [text, setText] = useState("Made with Quickly");
@@ -45,6 +47,9 @@ export default function AddTextImage() {
     if (!canvasRef.current) return;
     const b = await canvasToBlob(canvasRef.current, "image/png");
     downloadBlob(b, "with-text.png"); toast.success("Downloaded");
+    
+    // Trigger support prompt popup immediately following file download completion
+    showSupportPrompt();
   };
 
   // Converts a pointer position on the rendered canvas into the same 0-100 percent
@@ -116,6 +121,7 @@ export default function AddTextImage() {
               {POSITION_PRESETS.map((p) => (
                 <button
                   key={p.key}
+                  type="button"
                   onClick={() => { setX(p.x); setY(p.y); }}
                   className={`flex h-9 w-9 items-center justify-center rounded-full border-2 border-foreground text-sm font-bold transition-all ${
                     x === p.x && y === p.y
@@ -194,6 +200,7 @@ export default function AddTextImage() {
 
           {/* STEP 3 — download */}
           <button
+            type="button"
             onClick={run}
             className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5 hover:shadow-[5px_5px_0_0_var(--color-foreground)]"
           >

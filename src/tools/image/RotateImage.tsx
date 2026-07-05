@@ -4,8 +4,10 @@ import { Download, FlipHorizontal, FlipVertical, RotateCw, RotateCcw, Loader2 } 
 import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob } from "@/lib/format";
 import { loadImage, canvasToBlob } from "./_canvas";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 export default function RotateImage() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [files, setFiles] = useState<File[]>([]);
   const [angle, setAngle] = useState(0);
   const [flipH, setFlipH] = useState(false);
@@ -32,7 +34,13 @@ export default function RotateImage() {
       ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
       ctx.drawImage(img, -img.width / 2, -img.height / 2);
       const blob = await canvasToBlob(canvas, "image/png");
-      if (dl) { downloadBlob(blob, "rotated.png"); toast.success("Downloaded"); }
+      if (dl) { 
+        downloadBlob(blob, "rotated.png"); 
+        toast.success("Downloaded"); 
+        
+        // Trigger support prompt popup immediately following file download completion
+        showSupportPrompt();
+      }
       else setPreviewUrl(URL.createObjectURL(blob));
     } catch { toast.error("Failed"); }
   };
@@ -93,6 +101,7 @@ export default function RotateImage() {
               {([[-90, "−90°", RotateCcw], [90, "+90°", RotateCw], [180, "180°", RotateCw]] as const).map(([a, l, Icon]) => (
                 <button
                   key={l}
+                  type="button"
                   onClick={() => setAngle((angle + a + 360) % 360)}
                   className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-background px-4 py-2 text-sm font-bold transition-all hover:-translate-y-0.5 hover:shadow-[3px_3px_0_0_var(--color-foreground)]"
                 >
@@ -101,6 +110,7 @@ export default function RotateImage() {
                 </button>
               ))}
               <button
+                type="button"
                 onClick={() => setFlipH(!flipH)}
                 className={`inline-flex items-center gap-2 rounded-full border-2 border-foreground px-4 py-2 text-sm font-bold transition-all ${
                   flipH
@@ -111,6 +121,7 @@ export default function RotateImage() {
                 <FlipHorizontal className="h-4 w-4" /> Flip H
               </button>
               <button
+                type="button"
                 onClick={() => setFlipV(!flipV)}
                 className={`inline-flex items-center gap-2 rounded-full border-2 border-foreground px-4 py-2 text-sm font-bold transition-all ${
                   flipV
@@ -122,6 +133,7 @@ export default function RotateImage() {
               </button>
               {(angle !== 0 || flipH || flipV) && (
                 <button
+                  type="button"
                   onClick={() => { setAngle(0); setFlipH(false); setFlipV(false); }}
                   className="inline-flex items-center gap-2 rounded-full border-2 border-dashed border-foreground/50 px-4 py-2 text-sm font-bold text-muted-foreground transition-all hover:-translate-y-0.5 hover:border-solid hover:text-foreground"
                 >
@@ -145,6 +157,7 @@ export default function RotateImage() {
 
           {/* STEP 3 — download once happy with the preview */}
           <button
+            type="button"
             onClick={() => run(true)}
             className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5 hover:shadow-[5px_5px_0_0_var(--color-foreground)]"
           >

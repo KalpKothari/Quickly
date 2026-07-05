@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Download, RotateCcw, ArrowRight, ChevronLeft, ChevronRight, Trash2, PenTool } from "lucide-react";
 import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob } from "@/lib/format";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 // Bundler-native worker URL (works with Vite and Webpack 5 without a special
 // loader), set once at module load instead of resolved at render time.
@@ -28,6 +29,7 @@ const POSITION_PRESETS: [string, { x: number; y: number }][] = [
 ];
 
 export default function SignPdf() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [files, setFiles] = useState<File[]>([]);
   const [step, setStep] = useState<Step>("sign");
   const [pageCount, setPageCount] = useState(1);
@@ -52,6 +54,9 @@ export default function SignPdf() {
     return { x: (e.clientX - r.left) * (c.width / r.width), y: (e.clientY - r.top) * (c.height / r.height) };
   };
   const startStroke = (e: React.PointerEvent) => {
+    onPointerDown(e);
+  };
+  const onPointerDown = (e: React.PointerEvent) => {
     drawing.current = true;
     hasStrokes.current = true;
     const ctx = canvasRef.current!.getContext("2d")!;
@@ -155,6 +160,9 @@ export default function SignPdf() {
       const name = files[0].name.replace(/\.pdf$/i, "") + "-signed.pdf";
       downloadBlob(new Blob([bytes as BlobPart], { type: "application/pdf" }), name);
       toast.success("Signature applied");
+
+      // Trigger support prompt popup immediately following file download completion
+      showSupportPrompt();
     } catch (e) {
       console.error(e);
       toast.error("Couldn't sign this PDF.");
@@ -199,6 +207,7 @@ export default function SignPdf() {
               style={{ aspectRatio: "3/1" }}
             />
             <button
+              type="button"
               onClick={clearSig}
               className="mt-2 inline-flex items-center gap-1.5 rounded-full border-2 border-foreground bg-card px-3 py-1.5 text-xs font-bold transition-transform hover:-translate-y-0.5"
             >
@@ -206,6 +215,7 @@ export default function SignPdf() {
             </button>
           </div>
           <button
+            type="button"
             onClick={goToPlacement}
             className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
           >
@@ -219,6 +229,7 @@ export default function SignPdf() {
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-foreground bg-card p-3 shadow-[3px_3px_0_0_var(--color-foreground)]">
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={() => setTargetPage((p) => Math.max(1, p - 1))}
                 disabled={targetPage <= 1}
                 className="rounded-full border-2 border-foreground bg-background p-2 transition-transform enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-30"
@@ -230,6 +241,7 @@ export default function SignPdf() {
                 Page {targetPage} of {pageCount}
               </span>
               <button
+                type="button"
                 onClick={() => setTargetPage((p) => Math.min(pageCount, p + 1))}
                 disabled={targetPage >= pageCount}
                 className="rounded-full border-2 border-foreground bg-background p-2 transition-transform enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-30"
@@ -250,6 +262,7 @@ export default function SignPdf() {
                 />
               </label>
               <button
+                type="button"
                 onClick={() => { setSignaturePng(null); setStep("sign"); }}
                 className="inline-flex items-center gap-1.5 rounded-full border-2 border-foreground bg-background px-3 py-1.5 text-xs font-bold transition-transform hover:-translate-y-0.5"
               >
@@ -263,6 +276,7 @@ export default function SignPdf() {
             {POSITION_PRESETS.map(([label, p]) => (
               <button
                 key={label}
+                type="button"
                 onClick={() => setPos(p)}
                 aria-pressed={pos.x === p.x && pos.y === p.y}
                 className={
@@ -312,6 +326,7 @@ export default function SignPdf() {
 
           <div className="flex justify-end">
             <button
+              type="button"
               onClick={apply}
               disabled={busy}
               className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"

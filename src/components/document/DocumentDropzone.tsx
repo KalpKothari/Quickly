@@ -42,12 +42,19 @@ export default function DocumentDropzone({ onFile, accept, label }: DocumentDrop
         if (file) handleFile(file);
       }}
       onClick={() => document.getElementById(`doc-input-${accept}`)?.click()}
-      className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-10 text-center transition ${
-        dragOver ? "border-primary bg-primary/5" : "border-border bg-secondary/20 hover:bg-secondary/30"
+      className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-10 text-center transition-all ${
+        dragOver
+          ? "-translate-y-0.5 border-primary bg-primary/10 shadow-[5px_5px_0_0_var(--color-primary)]"
+          : "border-foreground/40 bg-card hover:-translate-y-0.5 hover:border-foreground hover:shadow-[5px_5px_0_0_var(--color-foreground)]"
       }`}
     >
-      <UploadCloud className="h-8 w-8 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">{label}</p>
+      <div
+        className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-foreground bg-primary/15 text-primary"
+        style={{ transform: "rotate(-6deg)" }}
+      >
+        <UploadCloud className="h-5 w-5" />
+      </div>
+      <p className="text-sm font-bold">{label}</p>
       <input
         id={`doc-input-${accept}`}
         type="file"

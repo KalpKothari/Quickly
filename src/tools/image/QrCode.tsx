@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { toast } from "sonner";
 import { Download, QrCode } from "lucide-react";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 export default function QrCodeGen() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [text, setText] = useState("https://quickly.app");
   const [size, setSize] = useState(400);
   const [fg, setFg] = useState("#111827");
@@ -24,6 +26,9 @@ export default function QrCodeGen() {
       a.download = "qr-code.png";
       a.click();
       toast.success("QR code downloaded");
+
+      // Trigger support prompt popup immediately following file download completion
+      showSupportPrompt();
     });
   };
 
@@ -112,6 +117,7 @@ export default function QrCodeGen() {
           </div>
           
           <button
+            type="button"
             onClick={download}
             disabled={!text}
             className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border-2 border-foreground bg-primary px-5 py-3 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5 hover:shadow-[4px_4px_0_0_var(--color-foreground)] disabled:opacity-40 disabled:pointer-events-none"

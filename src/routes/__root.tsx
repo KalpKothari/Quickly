@@ -15,6 +15,7 @@ import { Header } from "../components/layout/Header";
 import { Footer } from "../components/layout/Footer";
 import { Toaster } from "sonner";
 import { useTheme } from "../lib/stores";
+import { SupportProjectModal } from "@/components/support/SupportProjectModal";
 
 function NotFoundComponent() {
   return (
@@ -160,6 +161,7 @@ function RootComponent() {
         <Footer />
       </div>
       <Toaster />
+      <SupportProjectModal />
     </QueryClientProvider>
   );
 }

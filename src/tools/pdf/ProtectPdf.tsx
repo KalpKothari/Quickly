@@ -4,8 +4,10 @@ import { Lock, Eye, EyeOff, Check, X } from "lucide-react";
 import { PDFDocument } from "@cantoo/pdf-lib";
 import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob } from "@/lib/format";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 export default function ProtectPdf() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [files, setFiles] = useState<File[]>([]);
   const [userPassword, setUserPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -42,6 +44,9 @@ export default function ProtectPdf() {
       const name = files[0].name.replace(/\.pdf$/i, "") + "-protected.pdf";
       downloadBlob(new Blob([bytes as BlobPart], { type: "application/pdf" }), name);
       toast.success("PDF encrypted");
+
+      // Trigger support prompt popup immediately following file download completion
+      showSupportPrompt();
     } catch (e) {
       console.error(e);
       toast.error("Couldn't encrypt this PDF. It may already be protected.");
@@ -115,6 +120,7 @@ export default function ProtectPdf() {
               {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
+          {/* Live feedback instead of waiting for the error toast on submit. */}
           {confirmPassword.length > 0 && (
             <div className={"mt-1.5 flex items-center gap-1 text-xs font-semibold " + (matchOk ? "text-emerald-600" : "text-destructive")}>
               {matchOk ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
@@ -125,6 +131,7 @@ export default function ProtectPdf() {
       </div>
 
       <button
+        type="button"
         onClick={run}
         disabled={busy || !files[0] || !userPassword || userPassword !== confirmPassword}
         className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"

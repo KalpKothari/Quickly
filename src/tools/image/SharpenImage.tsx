@@ -4,6 +4,7 @@ import { Download, Sparkles, Loader2 } from "lucide-react";
 import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob } from "@/lib/format";
 import { loadImage, canvasToBlob } from "./_canvas";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 // Identical convolution — untouched.
 function convolve(imgData: ImageData, kernel: number[]) {
@@ -27,6 +28,7 @@ function convolve(imgData: ImageData, kernel: number[]) {
 }
 
 export default function SharpenImage() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [files, setFiles] = useState<File[]>([]);
   const [amount, setAmount] = useState(1);
   const [previewUrl, setPreviewUrl] = useState<string>();
@@ -54,6 +56,9 @@ export default function SharpenImage() {
       if (!c) return;
       const blob = await canvasToBlob(c, "image/png");
       downloadBlob(blob, "sharpened.png"); toast.success("Sharpened & downloaded");
+      
+      // Trigger support prompt popup immediately following file download completion
+      showSupportPrompt();
     } catch { toast.error("Failed"); }
   };
 
@@ -133,6 +138,7 @@ export default function SharpenImage() {
 
           {/* STEP 3 — download once happy with the preview */}
           <button
+            type="button"
             onClick={run}
             className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5 hover:shadow-[5px_5px_0_0_var(--color-foreground)]"
           >

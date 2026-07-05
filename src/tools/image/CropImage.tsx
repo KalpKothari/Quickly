@@ -4,6 +4,7 @@ import { Download, Crop as CropIcon } from "lucide-react";
 import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob } from "@/lib/format";
 import { loadImage, canvasToBlob } from "./_canvas";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 type Handle = "move" | "nw" | "ne" | "sw" | "se";
 
@@ -16,6 +17,8 @@ const ASPECTS: { key: string; label: string; ratio: number | null }[] = [
 ];
 
 export default function CropImage() {
+  const { showSupportPrompt } = useSupportPrompt();
+
   const [files, setFiles] = useState<File[]>([]);
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [crop, setCrop] = useState({ x: 10, y: 10, w: 80, h: 80 }); // percent — same shape as before
@@ -29,7 +32,8 @@ export default function CropImage() {
     loadImage(files[0]).then(setImg);
   }, [files]);
 
-  // Identical crop/export logic — untouched.
+  // Identical crop/export logic — untouched, with showSupportPrompt() added
+  // right after the existing success toast, same as every other tool.
   const run = async () => {
     if (!img) return;
     const cx = (crop.x / 100) * img.width, cy = (crop.y / 100) * img.height;
@@ -41,6 +45,7 @@ export default function CropImage() {
     const blob = await canvasToBlob(canvas, "image/png");
     downloadBlob(blob, "cropped.png");
     toast.success("Cropped & downloaded");
+    showSupportPrompt();
   };
 
   const labelFor = (k: "x" | "y" | "w" | "h") =>
@@ -50,7 +55,6 @@ export default function CropImage() {
 
   const applyAspect = (next: typeof crop, ratio: number | null, containerAspect: number): typeof crop => {
     if (ratio === null) return next;
-    // container is in on-screen pixels; convert the target ratio into percent-space
     const targetPctRatio = ratio / containerAspect;
     return { ...next, h: clamp(next.w / targetPctRatio, 5, 100 - next.y) };
   };
@@ -223,6 +227,7 @@ export default function CropImage() {
             )}
           </div>
 
+          {/* STEP 3 — crop & download */}
           <button
             onClick={run}
             className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5 hover:shadow-[5px_5px_0_0_var(--color-foreground)]"

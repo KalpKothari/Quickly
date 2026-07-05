@@ -6,8 +6,10 @@ import { ProgressBar } from "@/components/tool/ToolShell";
 import { downloadBlob, formatBytes } from "@/lib/format";
 import { loadImage, canvasToBlob } from "./_canvas";
 import { useRecent } from "@/lib/stores";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 export default function CompressImage() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [files, setFiles] = useState<File[]>([]);
   const [quality, setQuality] = useState(0.7);
   const [maxW, setMaxW] = useState(1920);
@@ -171,9 +173,13 @@ export default function CompressImage() {
               </div>
 
               <button 
+                type="button"
                 onClick={() => {
                   downloadBlob(result.blob, result.name);
                   toast.success("Image saved");
+                  
+                  // Trigger support prompt popup immediately following file download completion
+                  showSupportPrompt();
                 }} 
                 className="w-full inline-flex items-center justify-center gap-2 rounded-xl border-2 border-foreground bg-primary px-5 py-3.5 text-base font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
               >

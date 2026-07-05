@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PDFDocument } from "pdf-lib";
 import * as pdfjsLib from "pdfjs-dist";
 import { toast } from "sonner";
 import { Download, GripVertical, FileText, RotateCcw } from "lucide-react";
 import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob } from "@/lib/format";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 
 export default function ReorderPdf() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [files, setFiles] = useState<File[]>([]);
   const [order, setOrder] = useState<number[]>([]);
   const [thumbnails, setThumbnails] = useState<string[]>([]);
@@ -33,14 +35,14 @@ export default function ReorderPdf() {
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const viewport = page.getViewport({ scale: 0.4 });
-        
+
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d");
         canvas.height = viewport.height;
         canvas.width = viewport.width;
 
         if (context) {
-          await page.render({ canvasContext: context, viewport }).promise;
+          await page.render({ canvas, canvasContext: context, viewport }).promise;
           generatedThumbs.push(canvas.toDataURL("image/jpeg", 0.85));
         } else {
           generatedThumbs.push("");
@@ -72,8 +74,11 @@ export default function ReorderPdf() {
       const bytes = await out.save();
       downloadBlob(new Blob([bytes as BlobPart], { type: "application/pdf" }), "reordered.pdf");
       toast.success("Reordered successfully");
-    } catch { 
-      toast.error("Failed to generate PDF"); 
+
+      // Trigger support prompt popup immediately following file download completion
+      showSupportPrompt();
+    } catch {
+      toast.error("Failed to generate PDF");
     }
   };
 
@@ -96,7 +101,7 @@ export default function ReorderPdf() {
     const touch = e.touches[0];
     const element = document.elementFromPoint(touch.clientX, touch.clientY);
     const itemElement = element?.closest("[data-page-index]");
-    
+
     if (itemElement) {
       const targetIdx = Number(itemElement.getAttribute("data-page-index"));
       if (!Number.isNaN(targetIdx) && overIdx !== targetIdx) {
@@ -132,7 +137,7 @@ export default function ReorderPdf() {
         </div>
       ) : (
         <div className="space-y-5">
-          {/* Metadata Matrix Toolbar - MATCHES SCREENSHOT 2026-07-05 010434.png EXACTLY */}
+          {/* Metadata Matrix Toolbar */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-full border-2 border-foreground bg-card p-2 pl-4 pr-3 shadow-[3px_3px_0_0_var(--color-foreground)]">
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-primary/15 text-[11px] font-bold text-primary">
@@ -142,7 +147,7 @@ export default function ReorderPdf() {
                 {files[0].name} <span className="text-muted-foreground font-normal">({order.length} Pages Loaded)</span>
               </div>
             </div>
-            
+
             <button
               type="button"
               onClick={handleResetWorkspace}
@@ -163,7 +168,7 @@ export default function ReorderPdf() {
                   Drag or hold any page tile to rearrange. The final PDF output composition will follow the sequential layout order below.
                 </div>
 
-                {/* Fully Responsive Grid Container matching images exactly */}
+                {/* Fully Responsive Grid Container */}
                 <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 select-none touch-none">
                   {order.map((p, i) => (
                     <li
@@ -202,7 +207,7 @@ export default function ReorderPdf() {
                     >
                       {/* Drag Handle Overlay */}
                       <GripVertical className="absolute left-2 top-2 h-4 w-4 text-foreground/40 opacity-0 transition-opacity group-hover:opacity-100 bg-background/80 rounded border border-foreground/10 p-0.5" />
-                      
+
                       {/* Live Index Position Badge */}
                       <span className="absolute right-2 top-2 rounded-md border-2 border-foreground bg-primary px-2 py-0.5 text-xs font-black text-primary-foreground shadow-[1px_1px_0_0_var(--color-foreground)] z-10">
                         {i + 1}
@@ -211,9 +216,9 @@ export default function ReorderPdf() {
                       {/* Dynamic Visual Content Thumbnail Wrapper */}
                       <div className="w-full h-[82%] mt-6 rounded-lg border border-foreground/10 overflow-hidden bg-background flex items-center justify-center relative">
                         {thumbnails[p] ? (
-                          <img 
-                            src={thumbnails[p]} 
-                            alt={`Page visual preview ${p + 1}`} 
+                          <img
+                            src={thumbnails[p]}
+                            alt={`Page visual preview ${p + 1}`}
                             className="w-full h-full object-contain pointer-events-none"
                           />
                         ) : (
@@ -230,8 +235,9 @@ export default function ReorderPdf() {
                 </ul>
 
                 {/* Compile Action Control Module */}
-                <button 
-                  onClick={run} 
+                <button
+                  type="button"
+                  onClick={run}
                   className="w-full inline-flex items-center justify-center gap-2 rounded-xl border-2 border-foreground bg-primary px-5 py-3.5 text-base font-bold text-primary-foreground shadow-[4px_4px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
                 >
                   <Download className="h-5 w-5" /> Apply Structural Sequence & Save PDF

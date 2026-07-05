@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { toast } from "sonner";
 import { Download, Hash } from "lucide-react";
 import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob } from "@/lib/format";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 type Position = "br" | "bc" | "bl" | "tr" | "tc" | "tl";
 
@@ -27,6 +28,7 @@ const MARGIN_PRESETS = [12, 18, 24, 36, 48];
 const COLOR_PRESETS = ["#26262e", "#6b7280", "#2563eb", "#dc2626", "#ffffff"];
 
 export default function PageNumbers() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [files, setFiles] = useState<File[]>([]);
   const [position, setPosition] = useState<Position>("br");
   const [size, setSize] = useState(12);
@@ -58,6 +60,9 @@ export default function PageNumbers() {
       });
       downloadBlob(new Blob([await doc.save() as BlobPart], { type: "application/pdf" }), "numbered.pdf");
       toast.success("Numbered");
+
+      // Trigger support prompt popup immediately following file download completion
+      showSupportPrompt();
     } catch { toast.error("Failed"); }
   };
 
@@ -84,6 +89,7 @@ export default function PageNumbers() {
                 {POSITION_SPOTS.map(([pos, spot]) => (
                   <button
                     key={pos}
+                    type="button"
                     onClick={() => setPosition(pos)}
                     aria-pressed={position === pos}
                     aria-label={`Place page number at ${pos}`}
@@ -120,6 +126,7 @@ export default function PageNumbers() {
                   {SIZE_PRESETS.map((v) => (
                     <button
                       key={v}
+                      type="button"
                       onClick={() => setSize(v)}
                       aria-pressed={size === v}
                       className={
@@ -150,6 +157,7 @@ export default function PageNumbers() {
                   {MARGIN_PRESETS.map((v) => (
                     <button
                       key={v}
+                      type="button"
                       onClick={() => setMargin(v)}
                       aria-pressed={margin === v}
                       className={
@@ -196,6 +204,7 @@ export default function PageNumbers() {
                   {COLOR_PRESETS.map((c) => (
                     <button
                       key={c}
+                      type="button"
                       onClick={() => setColor(c)}
                       aria-label={`Use color ${c}`}
                       aria-pressed={color === c}
@@ -212,6 +221,7 @@ export default function PageNumbers() {
           </div>
 
           <button
+            type="button"
             onClick={run}
             className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
           >

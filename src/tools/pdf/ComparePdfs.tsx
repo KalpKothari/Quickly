@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useDocumentJob } from "@/hooks/useDocumentJob";
 import DocumentDropzone from "@/components/document/DocumentDropzone";
 import DocProcessingOverlay from "@/components/document/DocProcessingOverlay";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 
@@ -34,6 +35,7 @@ async function extractFullText(file: File): Promise<{ text: string; pageCount: n
 }
 
 export default function ComparePdfs() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [fileA, setFileA] = useState<File | null>(null);
   const [fileB, setFileB] = useState<File | null>(null);
   const [pageCountA, setPageCountA] = useState(0);
@@ -71,6 +73,9 @@ export default function ComparePdfs() {
       setTextB(resultB.text);
 
       setProgress(100, "Done");
+      
+      // Trigger support prompt popup immediately following successful text extraction and comparison
+      showSupportPrompt();
     });
   };
 
@@ -218,12 +223,14 @@ export default function ComparePdfs() {
             </div>
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={handleSwap}
                 className="inline-flex items-center gap-1.5 rounded-full border-2 border-foreground bg-background px-3 py-1.5 text-xs font-bold text-muted-foreground transition-all hover:-translate-y-0.5 hover:text-foreground hover:shadow-[3px_3px_0_0_var(--color-foreground)]"
               >
                 <ArrowLeftRight className="h-3.5 w-3.5" /> Swap
               </button>
               <button
+                type="button"
                 onClick={handleReset}
                 className="inline-flex items-center gap-1.5 rounded-full border-2 border-foreground bg-background px-3 py-1.5 text-xs font-bold text-muted-foreground transition-all hover:-translate-y-0.5 hover:text-destructive hover:shadow-[3px_3px_0_0_var(--color-foreground)]"
               >
@@ -243,7 +250,7 @@ export default function ComparePdfs() {
             </div>
           ) : (
             <>
-              {/* NEW: Only-in-A / Only-in-B breakdown, using the same diff parts already computed */}
+              {/* Only-in-A / Only-in-B breakdown */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2 rounded-2xl border-2 border-red-500 bg-red-500/5 p-4 shadow-[4px_4px_0_0_var(--color-foreground)]">
                   <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-red-700 dark:text-red-400">
@@ -280,7 +287,7 @@ export default function ComparePdfs() {
                 </div>
               </div>
 
-              {/* Existing inline diff view — unchanged */}
+              {/* Inline diff view */}
               <div className="space-y-3 rounded-2xl border-2 border-foreground bg-card p-5 shadow-[4px_4px_0_0_var(--color-foreground)]">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
@@ -296,6 +303,7 @@ export default function ComparePdfs() {
                     {diffIndices.length > 0 && (
                       <div className="flex items-center gap-1">
                         <button
+                          type="button"
                           onClick={() => jumpTo(-1)}
                           className="rounded-full border-2 border-foreground bg-background p-1.5 transition-all hover:-translate-y-0.5 hover:shadow-[2px_2px_0_0_var(--color-foreground)]"
                           aria-label="Previous change"
@@ -303,6 +311,7 @@ export default function ComparePdfs() {
                           <ChevronUp className="h-3.5 w-3.5" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => jumpTo(1)}
                           className="rounded-full border-2 border-foreground bg-background p-1.5 transition-all hover:-translate-y-0.5 hover:shadow-[2px_2px_0_0_var(--color-foreground)]"
                           aria-label="Next change"

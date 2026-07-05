@@ -3,8 +3,10 @@ import { toast } from "sonner";
 import { Merge, X, UploadCloud, ArrowUp, ArrowDown, ArrowRight } from "lucide-react";
 import { decodeAudioFile, mergeBuffersWithFades, audioBufferToWavBlob, downloadBlob } from "@/lib/audio-tools";
 import AudioPreview from "@/components/audio/AudioPreview";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 export default function MergeAudio() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [files, setFiles] = useState<File[]>([]);
   const [fadeSec, setFadeSec] = useState(1.2);
   const [gapSec, setGapSec] = useState(0.3);
@@ -60,6 +62,9 @@ export default function MergeAudio() {
     if (!previewBlob) return;
     downloadBlob(previewBlob, "merged-audio.wav");
     toast.success("Downloaded");
+    
+    // Trigger support prompt popup immediately following file download completion
+    showSupportPrompt();
   };
 
   const onDrop = (e: DragEvent) => {
@@ -231,6 +236,7 @@ export default function MergeAudio() {
           </div>
 
           <button
+            type="button"
             onClick={handleMerge}
             disabled={busy || files.length < 2}
             className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform enabled:hover:-translate-y-0.5 enabled:hover:shadow-[5px_5px_0_0_var(--color-foreground)] disabled:cursor-not-allowed disabled:opacity-50"
