@@ -120,7 +120,7 @@ export function SupportProjectModal() {
                 onClick={handleSupportClick}
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border-2 border-foreground bg-primary px-5 py-3 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5 hover:shadow-[5px_5px_0_0_var(--color-foreground)]"
               >
-                <Heart className="h-4 w-4" /> Support Project
+                <Heart className="h-4 w-4" /> Help Shape What's Next
               </button>
               <button
                 onClick={close}

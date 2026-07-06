@@ -549,7 +549,7 @@ function Landing() {
               <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border-2 border-foreground bg-fuchsia-500/15 text-fuchsia-500 lg:mx-0">
                 <Heart className="h-5 w-5" />
               </div>
-              <h2 className="font-display text-2xl font-bold sm:text-3xl">Support the Project</h2>
+              <h2 className="font-display text-2xl font-bold sm:text-3xl">Help Shape What's Next</h2>
               <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground sm:text-base lg:mx-0">
                 If you found this tool helpful or interesting, consider supporting its development.
                 Your contribution helps improve the experience and keep it accessible for everyone.
