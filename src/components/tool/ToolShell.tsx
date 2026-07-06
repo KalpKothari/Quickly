@@ -65,11 +65,11 @@ export function ComingSoon({ toolName }: { toolName: string }) {
         className="mb-4 inline-flex rounded-full border-2 border-foreground bg-primary/15 px-3 py-1 text-xs font-bold uppercase tracking-wide text-primary"
         style={{ transform: "rotate(-3deg)" }}
       >
-        In development
+        Building with Care
       </div>
       <h2 className="font-display text-xl font-bold">{toolName} is coming soon</h2>
       <p className="mt-2 max-w-md text-sm text-muted-foreground">
-        This tool requires server-side processing that we're actively working on. In the meantime, explore our 40+ tools that already run instantly in your browser.
+        We're giving this tool a little extra love before it's ready. Until then, enjoy our collection of 40+ free tools available today. Thanks for your patience!
       </p>
       <Link
         to="/"
