@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { formatINR, formatNumberIN } from "@/lib/format";
 import { Landmark, Download, FileDown } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, CartesianGrid, XAxis, YAxis } from "recharts";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 // One-tap amounts so a common loan size never needs manual typing.
 const AMOUNT_PRESETS: [string, number][] = [
@@ -26,6 +27,7 @@ const PIE_COLORS = ["var(--color-primary)", "var(--color-secondary)"];
 type Row = { month: number; principal: number; interest: number; extra: number; balance: number };
 
 export default function LoanCalculator() {
+  const { showSupportPrompt } = useSupportPrompt();
   const [amount, setAmount] = useState(2500000);
   const [rate, setRate] = useState(8.5);
   const [years, setYears] = useState(20);
@@ -96,15 +98,38 @@ export default function LoanCalculator() {
     link.download = "amortization-schedule.csv";
     link.click();
     URL.revokeObjectURL(url);
+
+    // Trigger support prompt popup immediately following file download completion
+    showSupportPrompt();
   };
 
   const exportPdf = () => {
     // Uses the browser's native print-to-PDF so no extra dependency is required.
     window.print();
+
+    // Trigger support prompt popup immediately following file download completion
+    showSupportPrompt();
   };
 
   return (
     <div className="space-y-6">
+      {/* Print-only override: the amortization table's scroll container is capped
+          at max-h-96 for on-screen use, but browsers keep that same clipped
+          height when printing an overflow:auto element instead of expanding it —
+          which is why only the visible rows were making it into the PDF/print
+          output. This removes that clipping specifically for print, so the full
+          schedule flows across as many pages as it needs. Works identically on
+          mobile since "print" here just means the browser's native print /
+          share-to-PDF flow, whichever device triggers it. */}
+      <style>{`
+        @media print {
+          .qk-amort-scroll {
+            max-height: none !important;
+            overflow: visible !important;
+          }
+        }
+      `}</style>
+
       <div className="flex items-center gap-1.5">
         <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-foreground bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)]">
           <Landmark className="h-3.5 w-3.5" />
@@ -358,7 +383,7 @@ export default function LoanCalculator() {
             </button>
           </div>
         </div>
-        <div className="max-h-96 overflow-y-auto border-t-2 border-foreground">
+        <div className="qk-amort-scroll max-h-96 overflow-y-auto border-t-2 border-foreground">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-secondary/40 text-[11px] font-bold uppercase tracking-wide text-foreground/70">
               <tr>

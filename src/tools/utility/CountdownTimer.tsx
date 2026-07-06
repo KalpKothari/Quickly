@@ -46,10 +46,14 @@ const DURATION_PRESETS: [string, number][] = [
 
 export default function CountdownTimer() {
   // Store exact target timestamp in milliseconds
-  const [targetTime, setTargetTime] = useState(() => Date.now() + 60_000);
+  const [targetTime, setTargetTime] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
   const [muted, setMuted] = useState(false);
   const [startedAt, setStartedAt] = useState(() => Date.now());
+  // Whether the user has actually picked/set a duration yet — without this,
+  // the timer would immediately show as "done" and fire the alarm on load,
+  // since target/startedAt both default to "now".
+  const [started, setStarted] = useState(false);
   
   // Custom input states
   const [customHours, setCustomHours] = useState("");
@@ -92,13 +96,13 @@ export default function CountdownTimer() {
 
   // Trigger alarm once per completed countdown.
   useEffect(() => {
-    if (remaining.done && firedForRef.current !== targetTime) {
+    if (started && remaining.done && firedForRef.current !== targetTime) {
       firedForRef.current = targetTime;
       if (!muted) {
         try { alarmRef.current = playAlarm(); } catch { /* audio blocked */ }
       }
     }
-  }, [remaining.done, targetTime, muted]);
+  }, [remaining.done, targetTime, muted, started]);
 
   // Reset the "already fired" marker when a new future target is set.
   useEffect(() => {
@@ -112,7 +116,7 @@ export default function CountdownTimer() {
   useEffect(() => () => alarmRef.current?.stop(), []);
 
   const totalMs = Math.max(1, targetTime - startedAt);
-  const progressPct = Math.min(100, Math.max(0, (1 - Math.max(0, targetTime - now) / totalMs) * 100));
+  const progressPct = started ? Math.min(100, Math.max(0, (1 - Math.max(0, targetTime - now) / totalMs) * 100)) : 0;
 
   const setDuration = (seconds: number) => {
     if (seconds <= 0) return;
@@ -120,6 +124,7 @@ export default function CountdownTimer() {
     setStartedAt(start);
     setNow(start);
     setTargetTime(start + seconds * 1000);
+    setStarted(true);
 
     firedForRef.current = null;
     alarmRef.current?.stop();
@@ -143,6 +148,7 @@ export default function CountdownTimer() {
     setStartedAt(start);
     setNow(start);
     setTargetTime(start); // Setting target to now stops the countdown immediately
+    setStarted(false);
     
     // Clear inputs
     setCustomHours("");
@@ -156,7 +162,7 @@ export default function CountdownTimer() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 space-y-6">
       <div className="flex items-center gap-1.5">
         <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-foreground bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)]">
           <Timer className="h-3.5 w-3.5" />
@@ -178,9 +184,9 @@ export default function CountdownTimer() {
       </div>
 
       {/* Custom Inputs and Control Actions Form */}
-      <form onSubmit={handleCustomSubmit} className="flex flex-wrap items-end gap-3 rounded-2xl border-2 border-foreground bg-card p-4 shadow-[3px_3px_0_0_var(--color-foreground)]">
-        <div className="flex flex-1 gap-2 min-w-[200px]">
-          <label className="flex-1">
+      <form onSubmit={handleCustomSubmit} className="flex min-w-0 flex-wrap items-end gap-3 rounded-2xl border-2 border-foreground bg-card p-4 shadow-[3px_3px_0_0_var(--color-foreground)]">
+        <div className="flex min-w-0 flex-1 gap-2 sm:min-w-[200px]">
+          <label className="min-w-0 flex-1">
             <span className="text-[11px] font-bold uppercase tracking-wide text-foreground/70 block mb-1">Hours</span>
             <input
               type="number"
@@ -188,10 +194,10 @@ export default function CountdownTimer() {
               placeholder="0"
               value={customHours}
               onChange={(e) => setCustomHours(e.target.value)}
-              className="w-full rounded-xl border-2 border-foreground bg-background px-3 py-2 text-sm font-semibold outline-none focus:border-primary"
+              className="w-full min-w-0 rounded-xl border-2 border-foreground bg-background px-3 py-2 text-sm font-semibold outline-none focus:border-primary"
             />
           </label>
-          <label className="flex-1">
+          <label className="min-w-0 flex-1">
             <span className="text-[11px] font-bold uppercase tracking-wide text-foreground/70 block mb-1">Mins</span>
             <input
               type="number"
@@ -200,10 +206,10 @@ export default function CountdownTimer() {
               placeholder="0"
               value={customMinutes}
               onChange={(e) => setCustomMinutes(e.target.value)}
-              className="w-full rounded-xl border-2 border-foreground bg-background px-3 py-2 text-sm font-semibold outline-none focus:border-primary"
+              className="w-full min-w-0 rounded-xl border-2 border-foreground bg-background px-3 py-2 text-sm font-semibold outline-none focus:border-primary"
             />
           </label>
-          <label className="flex-1">
+          <label className="min-w-0 flex-1">
             <span className="text-[11px] font-bold uppercase tracking-wide text-foreground/70 block mb-1">Secs</span>
             <input
               type="number"
@@ -212,12 +218,12 @@ export default function CountdownTimer() {
               placeholder="0"
               value={customSeconds}
               onChange={(e) => setCustomSeconds(e.target.value)}
-              className="w-full rounded-xl border-2 border-foreground bg-background px-3 py-2 text-sm font-semibold outline-none focus:border-primary"
+              className="w-full min-w-0 rounded-xl border-2 border-foreground bg-background px-3 py-2 text-sm font-semibold outline-none focus:border-primary"
             />
           </label>
         </div>
         
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex w-full gap-2 sm:w-auto">
           <button
             type="submit"
             className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border-2 border-foreground bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-[2px_2px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
@@ -237,14 +243,16 @@ export default function CountdownTimer() {
         </div>
       </form>
 
-      {/* Countdown Display */}
-      <div className="grid grid-cols-4 gap-3">
+      {/* Countdown Display — 2 columns on phones (so each cell has room for its
+          label like "Minutes"/"Seconds" without forcing horizontal overflow),
+          4 columns from the sm breakpoint up. */}
+      <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
         {[["Days", remaining.d], ["Hours", remaining.h], ["Minutes", remaining.m], ["Seconds", remaining.s]].map(([l, v]) => (
           <div
             key={l as string}
-            className="rounded-2xl border-2 border-foreground bg-gradient-to-br from-violet-500/15 to-indigo-500/15 p-6 text-center shadow-[5px_5px_0_0_var(--color-foreground)]"
+            className="min-w-0 rounded-2xl border-2 border-foreground bg-gradient-to-br from-violet-500/15 to-indigo-500/15 p-4 text-center shadow-[5px_5px_0_0_var(--color-foreground)] sm:p-6"
           >
-            <div className="text-4xl font-bold tabular-nums sm:text-5xl">{String(v).padStart(2, "0")}</div>
+            <div className="text-3xl font-bold tabular-nums sm:text-5xl">{String(v).padStart(2, "0")}</div>
             <div className="mt-2 inline-flex rounded-full border-2 border-foreground bg-card px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-foreground/70">
               {l}
             </div>
@@ -253,12 +261,12 @@ export default function CountdownTimer() {
       </div>
 
       {/* Progress Bar */}
-      <div className="h-3 w-full overflow-hidden rounded-full border-2 border-foreground bg-card">
+      <div className="h-3 w-full min-w-0 overflow-hidden rounded-full border-2 border-foreground bg-card">
         <div className="h-full bg-primary transition-[width]" style={{ width: `${progressPct}%` }} />
       </div>
 
-      {remaining.done && totalMs > 1 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-foreground bg-emerald-500/15 p-4 text-center text-lg font-bold text-emerald-600 shadow-[3px_3px_0_0_var(--color-foreground)] dark:text-emerald-400">
+      {started && remaining.done && totalMs > 1 && (
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-foreground bg-emerald-500/15 p-4 text-center text-lg font-bold text-emerald-600 shadow-[3px_3px_0_0_var(--color-foreground)] dark:text-emerald-400">
           <span> Time's up!</span>
           {!muted && (
             <button
