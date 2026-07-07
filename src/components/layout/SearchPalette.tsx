@@ -59,7 +59,7 @@ export function SearchPalette({ open, onClose }: { open: boolean; onClose: () =>
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search 60+ tools..."
+            placeholder="Search 40+ tools..."
             className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           <kbd className="rounded border-2 border-foreground bg-secondary px-1.5 py-0.5 text-[10px] font-bold text-foreground">

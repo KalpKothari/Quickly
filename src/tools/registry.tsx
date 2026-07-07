@@ -31,7 +31,6 @@ const MergeAudio = lazy(() => import("./audio/MergeAudio"));
 const VolumeChanger = lazy(() => import("./audio/VolumeChanger"));
 const FadeAudio = lazy(() => import("./audio/FadeAudio"));
 
-
 // Social
 const YouTubeThumb = lazy(() => import("./social/YouTubeThumb"));
 
@@ -46,10 +45,7 @@ const Attendance = lazy(() => import("./student/Attendance"));
 
 // Utility
 const UnitConverter = lazy(() => import("./utility/UnitConverter"));
-const CurrencyConverter = lazy(() => import("./utility/CurrencyConverter"));
 const AgeCalculator = lazy(() => import("./utility/AgeCalculator"));
-const EmiCalculator = lazy(() => import("./utility/EmiCalculator"));
-const LoanCalculator = lazy(() => import("./utility/LoanCalculator"));
 const PercentageCalculator = lazy(() => import("./utility/PercentageCalculator"));
 const BmiCalculator = lazy(() => import("./utility/BmiCalculator"));
 const TimezoneConverter = lazy(() => import("./utility/TimezoneConverter"));
@@ -57,6 +53,13 @@ const UrlShortener = lazy(() => import("./utility/UrlShortener"));
 const DateDifference = lazy(() => import("./utility/DateDifference"));
 const CountdownTimer = lazy(() => import("./utility/CountdownTimer"));
 const Stopwatch = lazy(() => import("./utility/Stopwatch"));
+
+// Finance — FIXED: Pointed strictly to your newly established financial file folder directory context
+const CurrencyConverter = lazy(() => import("./finance/CurrencyConverter"));
+const EmiCalculator = lazy(() => import("./finance/EmiCalculator"));
+const LoanCalculator = lazy(() => import("./finance/LoanCalculator"));
+const SavingsGoalCalculator = lazy(() => import("./finance/SavingsGoalCalculator"));
+const ExpenseTracker = lazy(() => import("./finance/ExpenseTracker"));
 
 export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
   "merge-pdf": MergePdf,
@@ -69,7 +72,6 @@ export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
   "protect-pdf": ProtectPdf,
   "sign-pdf": SignPdf,
   "compare-pdfs": ComparePdfs,
-
 
   "compress-image": CompressImage,
   "crop-image": CropImage,
@@ -107,4 +109,6 @@ export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
   "date-difference": DateDifference,
   "countdown-timer": CountdownTimer,
   "stopwatch": Stopwatch,
+  "savings-goal-calculator": SavingsGoalCalculator,
+  "expense-tracker": ExpenseTracker
 };

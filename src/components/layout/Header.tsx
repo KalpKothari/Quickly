@@ -23,7 +23,8 @@ export function Header() {
   useEffect(() => setMobileOpen(false), [path]);
   useEffect(() => setMegaOpen(false), [path]);
 
-  useHotkey("mod+k", (e) => {
+  // FIXED SHORTCUT: Changed from meta+k (Win+K) to alt+k to avoid Windows OS Settings conflict
+  useHotkey("alt+k", (e) => {
     e.preventDefault();
     setPaletteOpen(true);
   });
@@ -48,58 +49,41 @@ export function Header() {
         className="sticky top-0 z-40 border-b-2 border-foreground bg-background"
         onMouseLeave={scheduleCloseMega}
       >
-        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2 font-display text-xl font-bold tracking-tight">
-            <span className="inline-flex h-9 w-9 -rotate-6 items-center justify-center rounded-xl border-2 border-foreground bg-gradient-to-br from-primary to-fuchsia-500 text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:rotate-0">
+            <span className="inline-flex h-9 w-9 -rotate-6 items-center justify-center rounded-xl border-2 border-foreground bg-linear-to-br from-primary to-fuchsia-500 text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:rotate-0">
               <Sparkles className="h-4 w-4" />
             </span>
             <span>Quickly</span>
           </Link>
 
-          <nav className="ml-4 hidden items-center gap-1.5 lg:flex">
-            {CATEGORIES.map((c) => {
-              const active = path.startsWith(`/${c.slug}`);
-              return (
-                <Link
-                  key={c.id}
-                  to="/$category"
-                  params={{ category: c.slug }}
-                  className={cn(
-                    "rounded-lg border-2 px-3 py-1.5 text-sm font-bold transition-all",
-                    active
-                      ? "border-foreground bg-primary/20 text-foreground shadow-[3px_3px_0_0_var(--color-foreground)]"
-                      : "border-transparent text-muted-foreground hover:-translate-y-0.5 hover:border-foreground hover:bg-card hover:text-foreground hover:shadow-[3px_3px_0_0_var(--color-foreground)]",
-                  )}
-                >
-                  {c.name.replace(" Utilities", "").replace(" Tools", "")}
-                </Link>
-              );
-            })}
+          {/* RIGHT NAV SEGMENT */}
+          <div className="flex items-center gap-3">
+            <nav className="hidden items-center lg:flex">
+              <button
+                onMouseEnter={openMega}
+                onClick={() => setMegaOpen((v) => !v)}
+                className={cn(
+                  "flex items-center gap-1 rounded-lg border-2 px-3 py-1.5 text-sm font-bold transition-all",
+                  megaOpen
+                    ? "border-foreground bg-primary/20 text-foreground shadow-[3px_3px_0_0_var(--color-foreground)]"
+                    : "border-transparent text-muted-foreground hover:-translate-y-0.5 hover:border-foreground hover:bg-card hover:text-foreground hover:shadow-[3px_3px_0_0_var(--color-foreground)]",
+                )}
+              >
+                All Tools
+                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", megaOpen && "rotate-180")} />
+              </button>
+            </nav>
 
-            <button
-              onMouseEnter={openMega}
-              onClick={() => setMegaOpen((v) => !v)}
-              className={cn(
-                "flex items-center gap-1 rounded-lg border-2 px-3 py-1.5 text-sm font-bold transition-all",
-                megaOpen
-                  ? "border-foreground bg-primary/20 text-foreground shadow-[3px_3px_0_0_var(--color-foreground)]"
-                  : "border-transparent text-muted-foreground hover:-translate-y-0.5 hover:border-foreground hover:bg-card hover:text-foreground hover:shadow-[3px_3px_0_0_var(--color-foreground)]",
-              )}
-            >
-              All Tools
-              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", megaOpen && "rotate-180")} />
-            </button>
-          </nav>
-
-          <div className="ml-auto flex items-center gap-2">
             <button
               onClick={() => setPaletteOpen(true)}
               className="hidden items-center gap-2 rounded-full border-2 border-foreground bg-card px-3 py-1.5 text-sm font-medium text-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5 sm:flex"
             >
               <Search className="h-4 w-4" />
               <span>Search tools</span>
+              {/* FIXED BADGE: Updated to represent Alt/Option key shortcut indicator */}
               <kbd className="ml-4 rounded border-2 border-foreground bg-background px-1.5 py-0.5 text-[10px] font-bold">
-                ⌘K
+                Alt + K
               </kbd>
             </button>
             <button
@@ -126,7 +110,7 @@ export function Header() {
           </div>
         </div>
 
-        {/* Full-width mega menu panel — spans the entire viewport below the header */}
+        {/* FULL-WIDTH MEGA MENU PANEL */}
         <div
           onMouseEnter={openMega}
           onMouseLeave={scheduleCloseMega}
@@ -138,7 +122,7 @@ export function Header() {
           )}
         >
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-            <div className="grid grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 max-h-[75vh] overflow-y-auto">
               {CATEGORIES.map((c) => {
                 const tools = toolsByCategory(c.id).filter((t) => t.status === "live");
                 return (
@@ -181,9 +165,7 @@ export function Header() {
           </div>
         </div>
 
-        {/* Mobile menu panel — now INSIDE the sticky header, so it scrolls
-            with it and stays visible no matter where you've scrolled to,
-            instead of being left behind by the page underneath. */}
+        {/* Mobile menu block */}
         {mobileOpen && (
           <div className="border-t-2 border-foreground bg-background lg:hidden">
             <nav className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-3">
