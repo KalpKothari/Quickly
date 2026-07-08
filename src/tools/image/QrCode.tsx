@@ -6,7 +6,7 @@ import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 export default function QrCodeGen() {
   const { showSupportPrompt } = useSupportPrompt();
-  const [text, setText] = useState("https://quickly.app");
+  const [text, setText] = useState("https://usequickly.vercel.app");
   const [size, setSize] = useState(400);
   const [fg, setFg] = useState("#111827");
   const [bg, setBg] = useState("#ffffff");
