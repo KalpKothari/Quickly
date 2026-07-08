@@ -22,7 +22,7 @@ function triggerSpeechCelebration() {
     if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel(); 
       const utterance = new SpeechSynthesisUtterance("Goal achieved! Excellent job!");
-      utterance.rate = 1.0;
+       utterance.rate = 1.0;
       utterance.pitch = 1.2; 
       window.speechSynthesis.speak(utterance);
     }
@@ -136,7 +136,7 @@ export default function SavingsGoalCalculator() {
     setGoals((prev) =>
       prev.map((g) => (g.id === activeGoal.id ? { ...g, completed: true } : g))
     );
-    triggerSpeechCelebration(); // Confirmed user-click fires voice sound seamlessly on iOS & Android
+    triggerSpeechCelebration(); 
     toast.success("🎉 Incredible! You made it happen! Moved to Completed Triumphs!");
   };
 
@@ -192,7 +192,7 @@ export default function SavingsGoalCalculator() {
   const fillY = 150 - (fillLevelPercentage / 100) * 116;
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-full space-y-6 overflow-x-hidden px-1">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <span className="inline-flex self-start items-center gap-1.5 rounded-full border-2 border-foreground bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)]">
           <PiggyBank className="h-3.5 w-3.5" />
@@ -230,9 +230,9 @@ export default function SavingsGoalCalculator() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start max-w-full">
         {/* LEFT CARD — Visual animated gold fluid level */}
-        <div className="space-y-4 rounded-2xl border-2 border-foreground bg-gradient-to-br from-pink-500/10 to-amber-400/10 p-5 shadow-[5px_5px_0_0_var(--color-foreground)]">
+        <div className="space-y-4 rounded-2xl border-2 border-foreground bg-gradient-to-br from-pink-500/10 to-amber-400/10 p-4 sm:p-5 shadow-[5px_5px_0_0_var(--color-foreground)] min-w-0">
           <div className="relative mx-auto w-full max-w-[280px]">
             {coinBurst && (
               <div className="pointer-events-none absolute inset-x-0 -top-4 flex justify-center gap-3 text-2xl z-20">
@@ -303,17 +303,17 @@ export default function SavingsGoalCalculator() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl border-2 border-foreground bg-card p-3 text-center shadow-[2px_2px_0_0_var(--color-foreground)]">
+            <div className="rounded-xl border-2 border-foreground bg-card p-3 text-center shadow-[2px_2px_0_0_var(--color-foreground)] min-w-0">
               <div className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-foreground/60">
                 <Wallet className="h-3 w-3" /> Stashed
               </div>
-              <div className="mt-1 text-lg font-bold">{formatINR(saved)}</div>
+              <div className="mt-1 text-base sm:text-lg font-bold truncate">{formatINR(saved)}</div>
             </div>
-            <div className="rounded-xl border-2 border-foreground bg-card p-3 text-center shadow-[2px_2px_0_0_var(--color-foreground)]">
+            <div className="rounded-xl border-2 border-foreground bg-card p-3 text-center shadow-[2px_2px_0_0_var(--color-foreground)] min-w-0">
               <div className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-foreground/60">
                 <Target className="h-3 w-3" /> Left to go
               </div>
-              <div className="mt-1 text-lg font-bold">{activeGoal.completed ? formatINR(0) : formatINR(remaining)}</div>
+              <div className="mt-1 text-base sm:text-lg font-bold truncate">{activeGoal.completed ? formatINR(0) : formatINR(remaining)}</div>
             </div>
           </div>
 
@@ -329,25 +329,25 @@ export default function SavingsGoalCalculator() {
         </div>
 
         {/* RIGHT COLUMN — Inputs & stream logs */}
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0 max-w-full">
           {!activeGoal.completed ? (
             <>
-              <div className="rounded-2xl border-2 border-foreground bg-card p-4 shadow-[3px_3px_0_0_var(--color-foreground)]">
+              <div className="rounded-2xl border-2 border-foreground bg-card p-4 shadow-[3px_3px_0_0_var(--color-foreground)] min-w-0">
                 <span className="inline-flex items-center gap-1 rounded-full border-2 border-foreground bg-primary/15 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">
                   <Sparkles className="h-3 w-3" /> Blueprint
                 </span>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <label className="block">
+                <div className="mt-3 grid gap-3 grid-cols-1 sm:grid-cols-2">
+                  <label className="block min-w-0">
                     <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">What are you saving for?</span>
                     <input
                       value={activeGoal.name}
                       onChange={(e) => handleUpdateActiveGoalName(e.target.value)}
                       onKeyDown={(e) => e.stopPropagation()}
                       aria-label="Goal name"
-                      className="mt-1.5 w-full rounded-xl border-2 border-foreground bg-background px-3 py-2 text-sm font-semibold shadow-[2px_2px_0_0_var(--color-foreground)] outline-none focus:shadow-[3px_3px_0_0_var(--color-primary)]"
+                      className="mt-1.5 w-full rounded-xl border-2 border-foreground bg-background px-3 py-2 text-sm font-semibold shadow-[2px_2px_0_0_var(--color-foreground)] outline-none focus:shadow-[3px_3px_0_0_var(--color-primary)] text-ellipsis overflow-hidden"
                     />
                   </label>
-                  <label className="block">
+                  <label className="block min-w-0">
                     <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Target amount</span>
                     <input
                       type="number"
@@ -368,7 +368,7 @@ export default function SavingsGoalCalculator() {
                       onClick={() => handleUpdateActiveGoalTarget(v)}
                       aria-pressed={activeGoal.target === v}
                       className={
-                        "rounded-full border-2 border-foreground px-2.5 py-1 text-xs font-bold transition-transform hover:-translate-y-0.5 " +
+                        "rounded-full border-2 border-foreground px-2.5 py-1 text-xs font-bold transition-transform hover:-translate-y-0.5 max-w-full truncate " +
                         (activeGoal.target === v ? "bg-primary text-primary-foreground shadow-[2px_2px_0_0_var(--color-foreground)]" : "bg-background")
                       }
                     >
@@ -378,7 +378,7 @@ export default function SavingsGoalCalculator() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border-2 border-foreground bg-card p-4 shadow-[3px_3px_0_0_var(--color-foreground)]">
+              <div className="rounded-2xl border-2 border-foreground bg-card p-4 shadow-[3px_3px_0_0_var(--color-foreground)] min-w-0">
                 <span className="inline-flex rounded-full border-2 border-foreground bg-primary/15 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">
                   Feed the piggy bank
                 </span>
@@ -394,7 +394,7 @@ export default function SavingsGoalCalculator() {
                     }}
                     placeholder="Amount"
                     aria-label="Amount to add"
-                    className="w-full rounded-xl border-2 border-foreground bg-background px-3 py-2.5 text-sm font-semibold shadow-[2px_2px_0_0_var(--color-foreground)] outline-none focus:shadow-[3px_3px_0_0_var(--color-primary)]"
+                    className="w-full min-w-0 rounded-xl border-2 border-foreground bg-background px-3 py-2.5 text-sm font-semibold shadow-[2px_2px_0_0_var(--color-foreground)] outline-none focus:shadow-[3px_3px_0_0_var(--color-primary)]"
                   />
                   <button
                     type="button"
@@ -416,31 +416,29 @@ export default function SavingsGoalCalculator() {
                     </button>
                   ))}
                 </div>
-                <input
-                  type="text"
+                <textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  onKeyDown={(e) => { 
-                    e.stopPropagation();
-                    if (e.key === "Enter") addMoney(); 
-                  }}
+                  onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addMoney(); } }}
                   placeholder="Note (optional) — e.g. saved on lunch"
                   aria-label="Note"
-                  className="mt-2 w-full rounded-xl border-2 border-dashed border-foreground/30 bg-transparent px-3 py-2 text-xs font-medium outline-none focus:border-primary"
+                  rows={2}
+                  className="mt-3 w-full resize-none rounded-xl border-2 border-dashed border-foreground/30 bg-transparent px-3 py-2 text-xs font-medium outline-none focus:border-primary"
                 />
               </div>
             </>
           ) : (
-            <div className="rounded-2xl border-2 border-foreground bg-card p-5 text-center shadow-[3px_3px_0_0_var(--color-foreground)] space-y-3">
-              <PartyPopper className="h-10 w-10 text-emerald-600 mx-auto" />
+            <div className="space-y-3 rounded-2xl border-2 border-foreground bg-card p-5 text-center shadow-[3px_3px_0_0_var(--color-foreground)]">
+              <PartyPopper className="mx-auto h-10 w-10 text-emerald-600" />
               <h3 className="text-lg font-black text-emerald-700 dark:text-emerald-400">You Made It Happen!</h3>
-              <p className="text-xs font-bold text-muted-foreground leading-relaxed">
-                This asset block has been fully unlocked and registered as a complete milestone achievement! 
+              <p className="text-xs font-bold leading-relaxed text-muted-foreground">
+                This goal has been fully unlocked and registered as a complete milestone achievement!
               </p>
             </div>
           )}
 
-          <div className="rounded-2xl border-2 border-foreground bg-card p-4 shadow-[3px_3px_0_0_var(--color-foreground)]">
+
+          <div className="rounded-2xl border-2 border-foreground bg-card p-4 shadow-[3px_3px_0_0_var(--color-foreground)] min-w-0">
             <div className="flex items-center justify-between gap-2">
               <span className="inline-flex rounded-full border-2 border-foreground bg-secondary/40 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-foreground/70 flex items-center gap-1">
                 <Layers className="h-3 w-3" /> Deposit History
@@ -465,12 +463,12 @@ export default function SavingsGoalCalculator() {
                 {activeGoal.contributions.map((c) => (
                   <li
                     key={c.id}
-                    className="flex items-center gap-2 rounded-xl border-2 border-foreground bg-background px-3 py-2 shadow-[2px_2px_0_0_var(--color-foreground)]"
+                    className="flex items-start gap-2 rounded-xl border-2 border-foreground bg-background px-3 py-2 shadow-[2px_2px_0_0_var(--color-foreground)] min-w-0"
                   >
-                    <span className="text-lg">🪙</span>
+                    <span className="text-lg select-none pt-0.5">🪙</span>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-bold">{formatINR(c.amount)}</div>
-                      <div className="truncate text-[11px] font-medium text-muted-foreground">
+                      <div className="text-sm font-black truncate">{formatINR(c.amount)}</div>
+                      <div className="text-[11px] font-medium text-muted-foreground break-words whitespace-pre-wrap leading-relaxed">
                         {timeAgo(c.at)}{c.note ? ` · ${c.note}` : ""}
                       </div>
                     </div>
@@ -479,7 +477,7 @@ export default function SavingsGoalCalculator() {
                         type="button"
                         onClick={() => removeEntry(c.id)}
                         aria-label="Remove deposit"
-                        className="shrink-0 rounded-full border-2 border-foreground bg-card p-1.5 transition-transform hover:-translate-y-0.5"
+                        className="shrink-0 rounded-full border-2 border-foreground bg-card p-1.5 transition-transform hover:-translate-y-0.5 self-center"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -491,7 +489,7 @@ export default function SavingsGoalCalculator() {
           </div>
 
           {completedGoals.length > 0 && (
-            <div className="rounded-2xl border-2 border-foreground bg-card p-4 shadow-[3px_3px_0_0_var(--color-foreground)] bg-emerald-500/5">
+            <div className="rounded-2xl border-2 border-foreground bg-card p-4 shadow-[3px_3px_0_0_var(--color-foreground)] bg-emerald-500/5 min-w-0">
               <span className="inline-flex rounded-full border-2 border-foreground bg-emerald-500 text-white px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider">
                Completed Triumphs ({completedGoals.length})
               </span>
@@ -500,11 +498,11 @@ export default function SavingsGoalCalculator() {
                   <li
                     key={g.id}
                     onClick={() => setActiveGoalId(g.id)}
-                    className="flex items-center justify-between gap-2 rounded-xl border-2 border-foreground bg-background px-3 py-2 cursor-pointer shadow-[2px_2px_0_0_var(--color-foreground)] hover:-translate-y-0.5 transition-transform"
+                    className="flex items-center justify-between gap-2 rounded-xl border-2 border-foreground bg-background px-3 py-2 cursor-pointer shadow-[2px_2px_0_0_var(--color-foreground)] hover:-translate-y-0.5 transition-transform min-w-0"
                   >
                     <div className="truncate min-w-0">
                       <div className="text-xs font-black truncate text-emerald-600 dark:text-emerald-400">{g.name}</div>
-                      <div className="text-[10px] font-medium text-muted-foreground">Target: {formatINR(g.target)}</div>
+                      <div className="text-[10px] font-medium text-muted-foreground truncate">Target: {formatINR(g.target)}</div>
                     </div>
                     <button
                       type="button"
