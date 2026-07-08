@@ -5,6 +5,7 @@ import {
   PiggyBank, Sparkles, Filter, Ghost, Zap,
 } from "lucide-react";
 import { formatINR } from "@/lib/format";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 type Transaction = {
   id: string;
@@ -61,6 +62,8 @@ function timeAgo(ts: number): string {
 }
 
 export default function ExpenseTracker() {
+  const { showSupportPrompt } = useSupportPrompt();
+
   const [loaded, setLoaded] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [description, setDescription] = useState("");
@@ -171,6 +174,9 @@ export default function ExpenseTracker() {
     setAmount("");
     setSyncWithPiggy(false);
     toast.success(type === "income" ? "Income logged!" : "Expense logged!");
+    
+    // Trigger support prompt when transaction is successfully logged
+    showSupportPrompt();
   };
 
   const handleDeleteTransaction = (id: string) => {
@@ -180,6 +186,8 @@ export default function ExpenseTracker() {
 
   const handlePrintPDF = () => {
     window.print();
+    // Trigger support prompt when printable report is generated
+    showSupportPrompt();
   };
 
   if (!loaded) return null;
@@ -279,7 +287,7 @@ export default function ExpenseTracker() {
                 </button>
               </div>
 
-              {/* description — full row, min-w-0 so it can shrink */}
+              {/* description */}
               <label className="block min-w-0">
                 <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Description</span>
                 <input
@@ -405,7 +413,6 @@ export default function ExpenseTracker() {
                         : "border-l-[6px] border-l-red-500"
                     }`}
                   >
-                    {/* text side — min-w-0 + overflow-hidden so long names truncate instead of breaking layout */}
                     <div className="min-w-0 flex-1 overflow-hidden">
                       <div className="flex min-w-0 items-center gap-1.5">
                         <span className="min-w-0 truncate text-sm font-black text-foreground">
@@ -425,7 +432,6 @@ export default function ExpenseTracker() {
                       </div>
                     </div>
 
-                    {/* amount + delete — shrink-0 so they never get squeezed */}
                     <div className="flex shrink-0 items-center gap-2">
                       <span
                         className={`text-sm font-black tabular-nums ${

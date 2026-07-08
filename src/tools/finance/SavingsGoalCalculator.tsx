@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PiggyBank, Plus, Trash2, Sparkles, Target, Wallet, PartyPopper, Layers, CheckCircle2 } from "lucide-react";
 import { formatINR } from "@/lib/format";
+import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 type Contribution = { id: string; amount: number; note: string; at: number };
 type GoalItem = { id: string; name: string; target: number; contributions: Contribution[]; completed?: boolean };
@@ -20,10 +21,10 @@ const AMOUNT_PRESETS = [50, 100, 500, 1000, 5000];
 function triggerSpeechCelebration() {
   try {
     if ("speechSynthesis" in window) {
-      window.speechSynthesis.cancel(); 
+      window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance("Goal achieved! Excellent job!");
-       utterance.rate = 1.0;
-      utterance.pitch = 1.2; 
+      utterance.rate = 1.0;
+      utterance.pitch = 1.2;
       window.speechSynthesis.speak(utterance);
     }
   } catch (e) {
@@ -66,10 +67,11 @@ function timeAgo(ts: number): string {
 }
 
 export default function SavingsGoalCalculator() {
+  const { showSupportPrompt } = useSupportPrompt();
+
   const [loaded, setLoaded] = useState(false);
   const [goals, setGoals] = useState<GoalItem[]>([]);
   const [activeGoalId, setActiveGoalId] = useState("");
-  
   const [amount, setAmount] = useState("100");
   const [note, setNote] = useState("");
   const [coinBurst, setCoinBurst] = useState(false);
@@ -136,7 +138,7 @@ export default function SavingsGoalCalculator() {
     setGoals((prev) =>
       prev.map((g) => (g.id === activeGoal.id ? { ...g, completed: true } : g))
     );
-    triggerSpeechCelebration(); 
+    triggerSpeechCelebration();
     toast.success("🎉 Incredible! You made it happen! Moved to Completed Triumphs!");
   };
 
@@ -155,19 +157,20 @@ export default function SavingsGoalCalculator() {
   const addMoney = () => {
     const val = parseFloat(amount);
     if (!val || val <= 0) { toast.error("Enter an amount greater than 0"); return; }
-    
+
     const entry: Contribution = { id: crypto.randomUUID(), amount: val, note: note.trim(), at: Date.now() };
-    
+
     setGoals((prev) =>
       prev.map((g) => (g.id === activeGoal.id ? { ...g, contributions: [entry, ...g.contributions] } : g))
     );
-    
+
     setNote("");
     setCoinBurst(true);
     if (burstTimer.current) clearTimeout(burstTimer.current);
     burstTimer.current = setTimeout(() => setCoinBurst(false), 700);
-    
+
     toast.success(`🪙 Added ${formatINR(val)} to your piggy bank`);
+    showSupportPrompt(); // ← only new line
 
     const projectedSavings = saved + val;
     if (projectedSavings >= activeGoal.target && saved < activeGoal.target) {
@@ -323,7 +326,7 @@ export default function SavingsGoalCalculator() {
               onClick={handleMarkAsComplete}
               className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-foreground bg-emerald-500 text-white p-3 text-center text-sm font-black shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5 animate-bounce"
             >
-              <CheckCircle2 className="h-4 w-4" /> Mark as Complete! ✨
+              <CheckCircle2 className="h-4 w-4" /> Mark as Complete! 
             </button>
           )}
         </div>
@@ -388,9 +391,9 @@ export default function SavingsGoalCalculator() {
                     min={0}
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    onKeyDown={(e) => { 
+                    onKeyDown={(e) => {
                       e.stopPropagation();
-                      if (e.key === "Enter") addMoney(); 
+                      if (e.key === "Enter") addMoney();
                     }}
                     placeholder="Amount"
                     aria-label="Amount to add"
@@ -419,7 +422,10 @@ export default function SavingsGoalCalculator() {
                 <textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addMoney(); } }}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addMoney(); }
+                  }}
                   placeholder="Note (optional) — e.g. saved on lunch"
                   aria-label="Note"
                   rows={2}
@@ -436,7 +442,6 @@ export default function SavingsGoalCalculator() {
               </p>
             </div>
           )}
-
 
           <div className="rounded-2xl border-2 border-foreground bg-card p-4 shadow-[3px_3px_0_0_var(--color-foreground)] min-w-0">
             <div className="flex items-center justify-between gap-2">
@@ -491,7 +496,7 @@ export default function SavingsGoalCalculator() {
           {completedGoals.length > 0 && (
             <div className="rounded-2xl border-2 border-foreground bg-card p-4 shadow-[3px_3px_0_0_var(--color-foreground)] bg-emerald-500/5 min-w-0">
               <span className="inline-flex rounded-full border-2 border-foreground bg-emerald-500 text-white px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider">
-               Completed Triumphs ({completedGoals.length})
+                Completed Triumphs ({completedGoals.length})
               </span>
               <ul className="mt-3 space-y-2 max-h-36 overflow-y-auto pr-1">
                 {completedGoals.map((g) => (
