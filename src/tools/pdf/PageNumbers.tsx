@@ -1,14 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { toast } from "sonner";
-import { Download, Hash } from "lucide-react";
+import { Download, Hash, Sparkles } from "lucide-react";
 import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob } from "@/lib/format";
 import { useSupportPrompt } from "@/hooks/useSupportPrompt";
+import AdvancedPageNumbers from "@/components/pdf/AdvancedPageNumbers";
 
 type Position = "br" | "bc" | "bl" | "tr" | "tc" | "tl";
+type Tab = "standard" | "advanced";
 
-// Where each position sits on the visual page silhouette below.
 const POSITION_SPOTS: [Position, string][] = [
   ["tl", "top-2 left-2"],
   ["tc", "top-2 left-1/2 -translate-x-1/2"],
@@ -17,19 +18,16 @@ const POSITION_SPOTS: [Position, string][] = [
   ["bc", "bottom-2 left-1/2 -translate-x-1/2"],
   ["br", "bottom-2 right-2"],
 ];
-
-// One-tap font sizes covering the common range for page numbers.
 const SIZE_PRESETS = [9, 10, 12, 14, 16];
-
-// One-tap margins covering the common range.
 const MARGIN_PRESETS = [12, 18, 24, 36, 48];
-
-// One-tap colors so a common choice never needs the color picker.
 const COLOR_PRESETS = ["#26262e", "#6b7280", "#2563eb", "#dc2626", "#ffffff"];
 
 export default function PageNumbers() {
   const { showSupportPrompt } = useSupportPrompt();
   const [files, setFiles] = useState<File[]>([]);
+  const [tab, setTab] = useState<Tab>("standard");
+
+  // standard mode state — unchanged
   const [position, setPosition] = useState<Position>("br");
   const [size, setSize] = useState(12);
   const [startAt, setStartAt] = useState(1);
@@ -60,8 +58,6 @@ export default function PageNumbers() {
       });
       downloadBlob(new Blob([await doc.save() as BlobPart], { type: "application/pdf" }), "numbered.pdf");
       toast.success("Numbered");
-
-      // Trigger support prompt popup immediately following file download completion
       showSupportPrompt();
     } catch { toast.error("Failed"); }
   };
@@ -77,10 +73,35 @@ export default function PageNumbers() {
 
       <FileDrop accept="application/pdf" files={files} onFiles={setFiles} />
 
-      {files[0] && (
+      {/* Tab switcher */}
+      <div className="inline-flex rounded-xl border-2 border-foreground bg-background p-1">
+        <button
+          type="button"
+          onClick={() => setTab("standard")}
+          className={`rounded-lg px-4 py-2 text-xs font-bold transition-all ${
+            tab === "standard"
+              ? "border-2 border-foreground bg-primary text-primary-foreground shadow-[2px_2px_0_0_var(--color-foreground)]"
+              : "border-2 border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Standard
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("advanced")}
+          className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition-all ${
+            tab === "advanced"
+              ? "border-2 border-foreground bg-primary text-primary-foreground shadow-[2px_2px_0_0_var(--color-foreground)]"
+              : "border-2 border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Sparkles className="h-3 w-3" /> Advanced
+        </button>
+      </div>
+
+      {tab === "standard" && files[0] && (
         <>
           <div className="grid gap-5 sm:grid-cols-2">
-            {/* Visual page silhouette instead of a dropdown — click where the number should sit. */}
             <div className="block">
               <span className="inline-flex rounded-full border-2 border-foreground bg-primary/15 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">
                 Position
@@ -93,14 +114,9 @@ export default function PageNumbers() {
                     onClick={() => setPosition(pos)}
                     aria-pressed={position === pos}
                     aria-label={`Place page number at ${pos}`}
-                    className={
-                      "absolute flex h-8 w-8 items-center justify-center rounded-lg border-2 border-foreground text-xs font-bold transition-transform hover:-translate-y-0.5 " +
-                      spot +
-                      " " +
-                      (position === pos
-                        ? "bg-primary text-primary-foreground shadow-[2px_2px_0_0_var(--color-foreground)]"
-                        : "bg-secondary/40")
-                    }
+                    className={`absolute flex h-8 w-8 items-center justify-center rounded-lg border-2 border-foreground text-xs font-bold transition-transform hover:-translate-y-0.5 ${spot} ${
+                      position === pos ? "bg-primary text-primary-foreground shadow-[2px_2px_0_0_var(--color-foreground)]" : "bg-secondary/40"
+                    }`}
                   >
                     1
                   </button>
@@ -129,10 +145,9 @@ export default function PageNumbers() {
                       type="button"
                       onClick={() => setSize(v)}
                       aria-pressed={size === v}
-                      className={
-                        "rounded-full border-2 border-foreground px-2.5 py-1 text-xs font-bold transition-transform hover:-translate-y-0.5 " +
-                        (size === v ? "bg-primary text-primary-foreground shadow-[2px_2px_0_0_var(--color-foreground)]" : "bg-card")
-                      }
+                      className={`rounded-full border-2 border-foreground px-2.5 py-1 text-xs font-bold transition-transform hover:-translate-y-0.5 ${
+                        size === v ? "bg-primary text-primary-foreground shadow-[2px_2px_0_0_var(--color-foreground)]" : "bg-card"
+                      }`}
                     >
                       {v}pt
                     </button>
@@ -160,10 +175,9 @@ export default function PageNumbers() {
                       type="button"
                       onClick={() => setMargin(v)}
                       aria-pressed={margin === v}
-                      className={
-                        "rounded-full border-2 border-foreground px-2.5 py-1 text-xs font-bold transition-transform hover:-translate-y-0.5 " +
-                        (margin === v ? "bg-primary text-primary-foreground shadow-[2px_2px_0_0_var(--color-foreground)]" : "bg-card")
-                      }
+                      className={`rounded-full border-2 border-foreground px-2.5 py-1 text-xs font-bold transition-transform hover:-translate-y-0.5 ${
+                        margin === v ? "bg-primary text-primary-foreground shadow-[2px_2px_0_0_var(--color-foreground)]" : "bg-card"
+                      }`}
                     >
                       {v}pt
                     </button>
@@ -209,10 +223,9 @@ export default function PageNumbers() {
                       aria-label={`Use color ${c}`}
                       aria-pressed={color === c}
                       style={{ backgroundColor: c }}
-                      className={
-                        "h-8 w-8 rounded-full border-2 border-foreground transition-transform hover:-translate-y-0.5 " +
-                        (color === c ? "shadow-[2px_2px_0_0_var(--color-foreground)] ring-2 ring-primary ring-offset-2" : "")
-                      }
+                      className={`h-8 w-8 rounded-full border-2 border-foreground transition-transform hover:-translate-y-0.5 ${
+                        color === c ? "shadow-[2px_2px_0_0_var(--color-foreground)] ring-2 ring-primary ring-offset-2" : ""
+                      }`}
                     />
                   ))}
                 </div>
@@ -228,6 +241,10 @@ export default function PageNumbers() {
             <Download className="h-4 w-4" /> Apply &amp; Download
           </button>
         </>
+      )}
+
+      {tab === "advanced" && (
+        <AdvancedPageNumbers file={files[0] ?? null} />
       )}
     </div>
   );

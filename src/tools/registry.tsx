@@ -14,6 +14,7 @@ const ProtectPdf = lazy(() => import("./pdf/ProtectPdf"));
 const SignPdf = lazy(() => import("./pdf/SignPdf"));
 const ComparePdfs = lazy(() => import("./pdf/ComparePdfs"));
 
+
 // Image
 const CompressImage = lazy(() => import("./image/CompressImage"));
 const CropImage = lazy(() => import("./image/CropImage"));
@@ -72,6 +73,7 @@ export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
   "protect-pdf": ProtectPdf,
   "sign-pdf": SignPdf,
   "compare-pdfs": ComparePdfs,
+ 
 
   "compress-image": CompressImage,
   "crop-image": CropImage,
