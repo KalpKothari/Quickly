@@ -7,6 +7,25 @@ import { cn } from "@/lib/utils";
 import { SearchPalette } from "./SearchPalette";
 import { useHotkey } from "@/hooks/use-hotkey";
 
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Checks if the target element is an active editable element to prevent hotkey
+ * collisions during standard user text input workflows.
+ */
+function isEditableElement(el: HTMLElement | null): boolean {
+  if (!el) return false;
+  const tagName = el.tagName.toUpperCase();
+  return (
+    tagName === "INPUT" ||
+    tagName === "TEXTAREA" ||
+    el.isContentEditable ||
+    el.closest("[contenteditable]") !== null ||
+    el.closest(".cm-editor") !== null || // Common class fallback for Monaco/CodeMirror editors
+    el.closest(".monaco-editor") !== null
+  );
+}
+
 export function Header() {
   const { theme, toggle } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -23,16 +42,24 @@ export function Header() {
   useEffect(() => setMobileOpen(false), [path]);
   useEffect(() => setMegaOpen(false), [path]);
 
-  // FIXED SHORTCUT: Changed from meta+k (Win+K) to alt+k to avoid Windows OS Settings conflict
+  // FIXED SHORTCUT: Added strict e.altKey validation and editable element check 
+  // to prevent standalone 'k' key presses from opening the modal inside input views.
   useHotkey("alt+k", (e) => {
+    const target = e.target as HTMLElement;
+    if (!e.altKey || isEditableElement(target)) return;
+    
     e.preventDefault();
     setPaletteOpen(true);
   });
+
   useHotkey("/", (e) => {
-    if ((e.target as HTMLElement)?.tagName?.match(/INPUT|TEXTAREA/)) return;
+    const target = e.target as HTMLElement;
+    if (isEditableElement(target)) return;
+    
     e.preventDefault();
     setPaletteOpen(true);
   });
+
   useHotkey("g+h", () => navigate({ to: "/" }));
 
   const openMega = () => {
@@ -81,7 +108,6 @@ export function Header() {
             >
               <Search className="h-4 w-4" />
               <span>Search tools</span>
-              {/* FIXED BADGE: Updated to represent Alt/Option key shortcut indicator */}
               <kbd className="ml-4 rounded border-2 border-foreground bg-background px-1.5 py-0.5 text-[10px] font-bold">
                 Alt + K
               </kbd>
