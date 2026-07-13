@@ -102,6 +102,7 @@ export const TOOLS: Tool[] = [
   // Text
   { slug: "word-counter", name: "Word Counter", description: "Count words, sentences and paragraphs.", category: "text", icon: TypeIcon, status: "live", popular: true },
   { slug: "password-generator", name: "Password Generator", description: "Generate strong, secure passwords.", category: "text", icon: KeyRound, status: "live", popular: true, featured: true },
+  { slug: "text-comparison", name: "Text Comparison", description: "Compare two texts intelligently — detect additions, deletions, modifications, contradictions and numeric changes.", category: "text", icon: GitCompare, status: "live", popular: true },
 
   // Student
   { slug: "cgpa-calculator", name: "CGPA Calculator", description: "Compute CGPA & convert to percentage.", category: "student", icon: Award, status: "live", featured: true },

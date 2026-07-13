@@ -38,6 +38,7 @@ const YouTubeThumb = lazy(() => import("./social/YouTubeThumb"));
 // Text
 const WordCounter = lazy(() => import("./text/WordCounter"));
 const PasswordGenerator = lazy(() => import("./text/PasswordGenerator"));
+const TextComparison = lazy(() => import("./text/TextComparison"));
 
 // Student
 const CGPA = lazy(() => import("./student/CGPA"));
@@ -94,7 +95,7 @@ export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
 
   "word-counter": WordCounter,
   "password-generator": PasswordGenerator,
-
+  "text-comparison": TextComparison,
   "cgpa-calculator": CGPA,
   "percentage-calculator-student": MarksPercentage,
   "attendance-calculator": Attendance,
