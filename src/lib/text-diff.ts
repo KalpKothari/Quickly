@@ -35,25 +35,75 @@ function countWords(text: string): number {
 }
 
 /**
- * Checks if the text belongs to an unsupported language.
- * Returns the detected language string if it matches a non-English pattern.
+ * Evaluates whether text resembles common programming languages
+ */
+function isProgrammingCode(text: string): boolean {
+  // Check for common markdown code wrappers or signature indentation blocks
+  if (text.includes("```") || text.includes("function ") || text.includes("import ") || text.includes("export ")) return true;
+  
+  // High weight structural patterns (braces, brackets, semi-colons, statements)
+  const codeSignals = [
+    /const\s+\w+\s*=/, /let\s+\w+\s*=/, /def\s+\w+\(.*\):/, /if\s+__name__\s*==/,
+    /console\.log\(/, /print\(/, /<\/?[a-z][\s\S]*>/i, /SELECT\s+.*\s+FROM/i,
+    /\{[\s\S]*\}/, /\b(public|private|protected)\s+class\b/, /^\s*(interface|type)\s+\w+\s*\{/m
+  ];
+  
+  return codeSignals.some(re => re.test(text));
+}
+
+/**
+ * Validates language and flags unsupported non-English scripts or Latin-based natural text.
  */
 function checkUnsupportedLanguage(text: string): string | null {
+  if (!text.trim()) return null;
+
+  // Step 1: Safe bypass if identified as a source code snippet
+  if (isProgrammingCode(text)) return null;
+
   const t = text.toLowerCase();
-  
-  // Hindi Unicode range detection
-  const hiScore = (t.match(/[\u0900-\u097F]/g) || []).length;
-  if (hiScore > 5) return "Hindi";
-  
-  // Romance language high-frequency keyword check
-  const frWords = /\b(le|la|les|de|du|des|est|sont|avec|pour|dans|sur|que|qui|une|un|et|ou)\b/g;
-  const esWords = /\b(el|la|los|las|de|del|es|son|con|para|en|que|quien|una|un|y|o|por)\b/g;
-  const fr = (t.match(frWords) || []).length;
-  const es = (t.match(esWords) || []).length;
-  
-  if (fr > es && fr > 3) return "French";
-  if (es > fr && es > 3) return "Spanish";
-  
+
+  // Step 2: Unicode Range Checkers for non-Latin Scripts
+  if (/[\u0900-\u097F]/.test(text)) return "Hindi";
+  if (/[\u0B80-\u0BFF]/.test(text)) return "Tamil";
+  if (/[\u4E00-\u9FFF]/.test(text)) return "Chinese";
+  if (/[\u3040-\u30FF\u31F0-\u31FF]/.test(text)) return "Japanese";
+  if (/[\u0600-\u06FF]/.test(text)) return "Arabic";
+  if (/[\u0400-\u04FF]/.test(text)) return "Russian/Cyrillic";
+
+  // Step 3: High-accuracy stop-word density checks for Latin alphabet languages
+  const stopWords: Record<string, RegExp> = {
+    Spanish: /\b(el|la|los|las|un|una|unos|unas|del|al|y|o|pero|para|por|con|este|esta|como|su|sus|es|son|se)\b/g,
+    French: /\b(le|la|les|un|une|des|du|de|et|ou|mais|pour|par|avec|ce|cette|dans|sur|est|sont|en|au|aux)\b/g,
+    German: /\b(der|die|das|ein|eine|und|oder|aber|für|von|mit|dieser|diese|ist|sind|in|zu|den|dem|des)\b/g,
+    Italian: /\b(il|la|i|le|un|una|del|al|e|o|ma|per|da|con|questo|questa|come|su|suoi|è|sono|in)\b/g,
+    Portuguese: /\b(o|a|os|as|um|uma|do|da|com|para|por|em|este|esta|como|seu|seus|é|são|para|mais)\b/g,
+  };
+
+  let maxScore = 0;
+  let detectedLanguage: string | null = null;
+
+  for (const [lang, regex] of Object.entries(stopWords)) {
+    const matchCount = (t.match(regex) || []).length;
+    if (matchCount > maxScore) {
+      maxScore = matchCount;
+      detectedLanguage = lang;
+    }
+  }
+
+  // Only reject if localized stop word occurrence is distinct (e.g., more than 2 hits)
+  if (detectedLanguage && maxScore >= 3) {
+    return detectedLanguage;
+  }
+
+  // Cross reference English text signature presence to defend against micro-length lines
+  const enWords = /\b(the|and|of|to|a|in|is|that|it|he|was|for|on|are|as|with|his|they|i|at|be|this|have|from|or|by|one|had|by|word)\b/g;
+  const enCount = (t.match(enWords) || []).length;
+
+  // If there's content, no code detected, zero English flags, and foreign layout patterns, catch generalized fallback
+  if (enCount === 0 && countWords(text) > 4) {
+    return "Non-English (Unknown)";
+  }
+
   return null;
 }
 
@@ -80,7 +130,7 @@ export function compare(rawA: string, rawB: string): ComparisonResult {
   
   if (langA || langB) {
     const detectedLang = langA || langB;
-    throw new Error(`Unsupported Language: Only English is supported. Detected: ${detectedLang}`);
+    throw new Error(`Unsupported Language: Only English and programming code are supported. Detected language: ${detectedLang}`);
   }
 
   // Word-level diff

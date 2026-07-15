@@ -14,6 +14,7 @@ function countWords(t: string) {
   return t.trim().split(/\s+/).filter(Boolean).length;
 }
 
+// Global hotkey string highlights compiler
 function highlight(text: string, query: string): string {
   if (!query.trim()) return text;
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -116,7 +117,7 @@ export default function TextComparison() {
   const panelBRef = useRef<HTMLDivElement>(null);
   const syncingRef = useRef(false);
 
-  // Auto-compare with debounce and error capturing logic
+  // Auto-compare with debounce and language block validation checks
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!textA.trim() && !textB.trim()) { 
@@ -135,7 +136,7 @@ export default function TextComparison() {
         setResult(null);
         const msg = err?.message || "Unsupported language encountered.";
         setErrorMsg(msg);
-        toast.error(msg);
+        toast.error("Analysis Blocked: Only English and code are supported.");
       }
     }, 400);
 
@@ -195,7 +196,7 @@ export default function TextComparison() {
 
   return (
     <div className="space-y-5">
-      {/* ─── PRINT CONTAINER (AUTOMATICALLY TRIGGERED BY PRINT / SAVE AS PDF) ─── */}
+      {/* ─── PRINT CONTAINER ─── */}
       {result && (
         <div className="hidden print:block w-full text-black bg-white p-4 font-sans antialiased">
           <div className="flex items-center justify-between border-b-4 border-black pb-4 mb-6">
@@ -369,7 +370,9 @@ export default function TextComparison() {
           <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
           <div>
             <h4 className="font-black text-sm text-destructive uppercase tracking-wide">Analysis Blocked</h4>
-            <p className="text-xs font-medium text-muted-foreground mt-1">{errorMsg}</p>
+            <div className="text-xs font-medium text-muted-foreground mt-1 whitespace-pre-line">
+              {errorMsg}
+            </div>
           </div>
         </div>
       )}
@@ -457,9 +460,14 @@ export default function TextComparison() {
                     {result.chunks.map((chunk) =>
                       chunk.type === "equal"
                         ? <CollapsibleEqual key={chunk.id} text={chunk.textA} searchQuery={searchQuery} />
-                        : <ChunkSpan key={chunk.id} chunk={chunk} side="a" searchQuery={searchQuery}
+                        : <ChunkSpan 
+                            key={chunk.id} 
+                            chunk={chunk} 
+                            side="a" 
+                            searchQuery={searchQuery}
                             isActive={chunk.id === activeChunkId}
-                            onClick={() => setActiveChunkId(chunk.id === activeChunkId ? null : chunk.id)} />
+                            onClick={() => setActiveChunkId(chunk.id === activeChunkId ? null : chunk.id)} 
+                          />
                     )}
                   </div>
                 </div>
@@ -476,9 +484,14 @@ export default function TextComparison() {
                     {result.chunks.map((chunk) =>
                       chunk.type === "equal"
                         ? <CollapsibleEqual key={chunk.id} text={chunk.textB} searchQuery={searchQuery} />
-                        : <ChunkSpan key={chunk.id} chunk={chunk} side="b" searchQuery={searchQuery}
+                        : <ChunkSpan 
+                            key={chunk.id} 
+                            chunk={chunk} 
+                            side="b" 
+                            searchQuery={searchQuery}
                             isActive={chunk.id === activeChunkId}
-                            onClick={() => setActiveChunkId(chunk.id === activeChunkId ? null : chunk.id)} />
+                            onClick={() => setActiveChunkId(chunk.id === activeChunkId ? null : chunk.id)} 
+                          />
                     )}
                   </div>
                 </div>
