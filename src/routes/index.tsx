@@ -35,13 +35,14 @@ const TILTS = ["-2deg", "1.5deg", "-1deg", "2deg", "-1.5deg", "1deg", "-2.5deg",
 // ---- UPI Support configuration ----
 const UPI_ID = "kalpkothari14@oksbi";
 const UPI_PAYEE_NAME = "Quickly Support";
+const UPI_TRANSACTION_NOTE = "Keep Quickly Growing - Development Support";
 const MIN_UPI_AMOUNT = 10;
 const PRESET_AMOUNTS = [49, 99, 199];
 
 function buildUpiLink(amount: number) {
   return `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(
     UPI_PAYEE_NAME,
-  )}&am=${encodeURIComponent(amount.toString())}&cu=INR`;
+  )}&am=${encodeURIComponent(amount.toString())}&cu=INR&tn=${encodeURIComponent(UPI_TRANSACTION_NOTE)}`;
 }
 
 function isMobileDevice() {

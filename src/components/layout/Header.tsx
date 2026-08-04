@@ -60,7 +60,18 @@ export function Header() {
     setPaletteOpen(true);
   });
 
-  useHotkey("g+h", () => navigate({ to: "/" }));
+  // FIXED SHORTCUT: "g+h" was never a real two-key sequence — useHotkey doesn't
+  // implement sequence matching, and its modifier parser silently drops
+  // unrecognized tokens like "g", so this fired on every bare "h" keypress
+  // (including while typing in inputs). Replaced with a proper alt-gated
+  // shortcut, guarded against editable elements, matching the alt+k pattern.
+  useHotkey("alt+h", (e) => {
+    const target = e.target as HTMLElement;
+    if (!e.altKey || isEditableElement(target)) return;
+
+    e.preventDefault();
+    navigate({ to: "/" });
+  });
 
   const openMega = () => {
     if (closeTimer.current) clearTimeout(closeTimer.current);

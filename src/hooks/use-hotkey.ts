@@ -6,10 +6,12 @@ export function useHotkey(combo: string, handler: (e: KeyboardEvent) => void) {
     const key = parts.pop()!;
     const wantMeta = parts.includes("mod") || parts.includes("cmd") || parts.includes("ctrl");
     const wantShift = parts.includes("shift");
+    const wantAlt = parts.includes("alt") || parts.includes("option");
     const listener = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== key) return;
       if (wantMeta && !(e.metaKey || e.ctrlKey)) return;
       if (wantShift && !e.shiftKey) return;
+      if (wantAlt && !e.altKey) return;
       handler(e);
     };
     window.addEventListener("keydown", listener);
