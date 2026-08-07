@@ -10,7 +10,7 @@ import {
   Type as TypeIcon, Hash, KeyRound,
   Ruler, Coins, Cake, Percent, Activity, Calculator, Globe, Link2, CalendarClock, Timer, TimerReset,
   Award, CalendarCheck, PiggyBank,
-  Wallet, Banknote,
+  Wallet, Banknote, Shuffle,
 } from "lucide-react";
 
 export type CategoryId =
@@ -45,7 +45,7 @@ export const CATEGORIES: Category[] = [
   { id: "social", slug: "social", name: "Social Media", tagline: "Downloaders & platform utilities", icon: Share2, color: "cat-social", gradient: "from-pink-500/15 to-fuchsia-500/10" },
   { id: "student", slug: "students", name: "Student Tools", tagline: "CGPA, attendance & marks", icon: GraduationCap, color: "cat-student", gradient: "from-emerald-500/15 to-teal-500/10" },
   { id: "text", slug: "text", name: "Text Tools", tagline: "Counters, generators & formatters", icon: Type, color: "cat-text", gradient: "from-slate-500/15 to-zinc-500/10" },
-  { id: "utility", slug: "utilities", name: "Daily Utilities", tagline: "Calculators, converters & timers", icon: Wrench, color: "cat-utility", gradient: "from-violet-500/15 to-indigo-500/10" },
+  { id: "utility", slug: "utilities", name: "Mini Tools", tagline: "Calculators, converters & timers", icon: Wrench, color: "cat-utility", gradient: "from-violet-500/15 to-indigo-500/10" },
   { id: "finance", slug: "finance", name: "Finance Tools", tagline: "Calculators, trackers & savings vaults", icon: Banknote, color: "cat-finance", gradient: "from-emerald-500/15 to-amber-500/10" },
 ];
 
@@ -119,6 +119,8 @@ export const TOOLS: Tool[] = [
   { slug: "date-difference", name: "Date Difference", description: "Days, weeks, months between two dates.", category: "utility", icon: CalendarClock, status: "live" },
   { slug: "countdown-timer", name: "Countdown Timer", description: "Count down to any moment.", category: "utility", icon: Timer, status: "live" },
   { slug: "stopwatch", name: "Stopwatch", description: "Precise stopwatch with laps.", category: "utility", icon: TimerReset, status: "live" },
+  { slug: "spin-the-wheel", name: "Spin The Wheel", description: "Randomly select an option from a list.", category: "utility", icon: Repeat, status: "live" },
+  { slug: "randomizer", name: "Randomizer", description: "Generate random numbers, strings, and more.", category: "utility", icon: Shuffle, status: "live" },
 
   // Finance
   { slug: "currency-converter", name: "Currency Converter", description: "Live currency conversion with INR support.", category: "finance", icon: Coins, status: "live" },
