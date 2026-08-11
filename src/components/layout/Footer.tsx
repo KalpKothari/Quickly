@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Sparkles, Github, Twitter } from "lucide-react";
+import { Sparkles, Linkedin, Github, Instagram } from "lucide-react";
 import { CATEGORIES } from "@/lib/tools";
 
 export function Footer() {
@@ -20,36 +20,54 @@ export function Footer() {
         <div>
           <Link to="/" className="flex items-center gap-2 font-display text-lg font-bold">
             <span
-              className="inline-flex h-9 w-9 -rotate-6 items-center justify-center rounded-xl border-2 border-foreground bg-gradient-to-br from-primary to-fuchsia-500 text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)]"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border-2 border-foreground bg-gradient-to-br from-primary to-fuchsia-500 text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)]"
             >
               <Sparkles className="h-4 w-4" />
             </span>
             Quickly
           </Link>
           <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-            All-in-one productivity toolbox. 60+ free tools that work right in your browser — no signup, no uploads to servers.
+            All-in-one productivity toolbox. 46+ free tools that work right in your browser — no signup, no uploads to servers.
           </p>
           <div className="mt-4 flex gap-2">
+            {/* LinkedIn */}
             <a
-              href="#"
+              href="https://www.linkedin.com/in/kalp-kothari-a748b52b7"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="LinkedIn"
+              className="rounded-full border-2 border-foreground bg-card p-2 text-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
+            >
+              <Linkedin className="h-4 w-4" />
+            </a>
+
+            {/* GitHub */}
+            <a
+              href="https://github.com/KalpKothari"
+              target="_blank"
+              rel="noopener noreferrer"
               aria-label="GitHub"
-              className="rounded-full border-2 border-foreground bg-card p-2 text-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5 hover:rotate-6"
+              className="rounded-full border-2 border-foreground bg-card p-2 text-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
             >
               <Github className="h-4 w-4" />
             </a>
+
+            {/* Instagram */}
             <a
-              href="#"
-              aria-label="Twitter"
-              className="rounded-full border-2 border-foreground bg-card p-2 text-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5 hover:-rotate-6"
+              href="https://www.instagram.com/k_kothari_?igsh=eGxjOG83bzEybzcx"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Instagram"
+              className="rounded-full border-2 border-foreground bg-card p-2 text-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
             >
-              <Twitter className="h-4 w-4" />
+              <Instagram className="h-4 w-4" />
             </a>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-4 md:col-span-2">
-          {CATEGORIES.slice(0, 4).map((c, i) => (
-            <div key={c.id} style={{ transform: `rotate(${i % 2 === 0 ? "-1deg" : "1deg"})` }}>
+          {CATEGORIES.slice(0, 4).map((c) => (
+            <div key={c.id}>
               <Link
                 to="/$category"
                 params={{ category: c.slug }}

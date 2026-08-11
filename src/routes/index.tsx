@@ -432,7 +432,7 @@ function Landing() {
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
         <div className="grid gap-6 sm:grid-cols-4">
           {[
-            ["48+", "Tools", "var(--color-primary)"],
+            ["46+", "Tools", "var(--color-primary)"],
             ["8", "Categories", "#f97316"],
             ["100%", "In-browser", "#d946ef"],
             ["0", "Signups needed", "var(--color-primary)"],

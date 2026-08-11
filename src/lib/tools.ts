@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 export type CategoryId =
-  | "pdf" | "image" | "audio" | "social" | "student" | "text" | "utility" | "finance";
+  | "pdf" | "image" | "audio" | "social" | "student" | "text" | "finance"| "utility";
 
 export interface Category {
   id: CategoryId;
@@ -45,8 +45,8 @@ export const CATEGORIES: Category[] = [
   { id: "social", slug: "social", name: "Social Media", tagline: "Downloaders & platform utilities", icon: Share2, color: "cat-social", gradient: "from-pink-500/15 to-fuchsia-500/10" },
   { id: "student", slug: "students", name: "Student Tools", tagline: "CGPA, attendance & marks", icon: GraduationCap, color: "cat-student", gradient: "from-emerald-500/15 to-teal-500/10" },
   { id: "text", slug: "text", name: "Text Tools", tagline: "Counters, generators & formatters", icon: Type, color: "cat-text", gradient: "from-slate-500/15 to-zinc-500/10" },
-  { id: "utility", slug: "utilities", name: "Mini Tools", tagline: "Calculators, converters & timers", icon: Wrench, color: "cat-utility", gradient: "from-violet-500/15 to-indigo-500/10" },
   { id: "finance", slug: "finance", name: "Finance Tools", tagline: "Calculators, trackers & savings vaults", icon: Banknote, color: "cat-finance", gradient: "from-emerald-500/15 to-amber-500/10" },
+  { id: "utility", slug: "utilities", name: "Mini Tools", tagline: "Calculators, converters & timers", icon: Wrench, color: "cat-utility", gradient: "from-violet-500/15 to-indigo-500/10" },
 ];
 
 export const TOOLS: Tool[] = [
@@ -109,6 +109,13 @@ export const TOOLS: Tool[] = [
   { slug: "percentage-calculator-student", name: "Marks Percentage", description: "Calculate percentage across multiple subjects.", category: "student", icon: Percent, status: "live" },
   { slug: "attendance-calculator", name: "Attendance Calculator", description: "Track attendance and see bunkable classes.", category: "student", icon: CalendarCheck, status: "live", popular: true, featured: true },
 
+  // Finance
+  { slug: "currency-converter", name: "Currency Converter", description: "Live currency conversion with INR support.", category: "finance", icon: Coins, status: "live" },
+  { slug: "emi-calculator", name: "EMI Calculator", description: "Indian-standard EMI with amortization.", category: "finance", icon: Calculator, status: "live" },
+  { slug: "loan-calculator", name: "Loan Calculator", description: "Estimate loan cost, interest and tenure.", category: "finance", icon: Calculator, status: "live" },
+  { slug: "savings-goal-calculator", name: "Savings Goal Calculator", description: "See exactly when you'll hit your savings goal or what it takes to get there.", category: "finance", icon: PiggyBank, status: "live", popular: true, featured: true },
+  { slug: "expense-tracker", name: "Expense Tracker", description: "Track your expenses and manage your budget.", category: "finance", icon: Wallet, status: "live", popular: true, featured: true },
+
   // Utility
   { slug: "unit-converter", name: "Unit Converter", description: "Convert length, weight, temperature and more.", category: "utility", icon: Ruler, status: "live", popular: true },
   { slug: "age-calculator", name: "Age Calculator", description: "Exact age in years, months, days.", category: "utility", icon: Cake, status: "live", popular: true },
@@ -121,13 +128,6 @@ export const TOOLS: Tool[] = [
   { slug: "stopwatch", name: "Stopwatch", description: "Precise stopwatch with laps.", category: "utility", icon: TimerReset, status: "live" },
   { slug: "spin-the-wheel", name: "Spin The Wheel", description: "Randomly select an option from a list.", category: "utility", icon: Repeat, status: "live" },
   { slug: "randomizer", name: "Randomizer", description: "Generate random numbers, strings, and more.", category: "utility", icon: Shuffle, status: "live" },
-
-  // Finance
-  { slug: "currency-converter", name: "Currency Converter", description: "Live currency conversion with INR support.", category: "finance", icon: Coins, status: "live" },
-  { slug: "emi-calculator", name: "EMI Calculator", description: "Indian-standard EMI with amortization.", category: "finance", icon: Calculator, status: "live" },
-  { slug: "loan-calculator", name: "Loan Calculator", description: "Estimate loan cost, interest and tenure.", category: "finance", icon: Calculator, status: "live" },
-  { slug: "savings-goal-calculator", name: "Savings Goal Calculator", description: "See exactly when you'll hit your savings goal or what it takes to get there.", category: "finance", icon: PiggyBank, status: "live", popular: true, featured: true },
-  { slug: "expense-tracker", name: "Expense Tracker", description: "Track your expenses and manage your budget.", category: "finance", icon: Wallet, status: "live", popular: true, featured: true },
 ];
 
 export function getCategory(id: CategoryId): Category {
