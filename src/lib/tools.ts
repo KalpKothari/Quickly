@@ -101,7 +101,7 @@ export const TOOLS: Tool[] = [
   { slug: "linkedin-video", name: "LinkedIn Video Downloader", description: "Download public LinkedIn videos.", category: "social", icon: Linkedin, status: "soon" },
   
   // Text
-  { slug: "word-counter", name: "Word Counter", description: "Count words, sentences and paragraphs.", category: "text", icon: TypeIcon, status: "live", popular: true, featured: true },
+  { slug: "word-counter", name: "Word Counter", description: "Count words, sentences and paragraphs.", category: "text", icon: TypeIcon, status: "live", popular: true },
   { slug: "password-generator", name: "Password Generator", description: "Generate strong, secure passwords.", category: "text", icon: KeyRound, status: "live", popular: true, featured: true },
   { slug: "text-comparison", name: "Text Comparison", description: "Compare two texts intelligently — detect additions, deletions, modifications, contradictions and numeric changes.", category: "text", icon: GitCompare, status: "live" },
 
@@ -111,7 +111,7 @@ export const TOOLS: Tool[] = [
   { slug: "percentage-calculator-student", name: "Marks Percentage", description: "Calculate percentage across multiple subjects.", category: "student", icon: Percent, status: "live" },
 
   // Finance
-  { slug: "emi-calculator", name: "EMI Calculator", description: "Indian-standard EMI with amortization.", category: "finance", icon: Calculator, status: "live", popular: true },
+  { slug: "emi-calculator", name: "EMI Calculator", description: "Indian-standard EMI with amortization.", category: "finance", icon: Calculator, status: "live", popular: true, featured: true },
   { slug: "currency-converter", name: "Currency Converter", description: "Live currency conversion with INR support.", category: "finance", icon: Coins, status: "live", popular: true },
   { slug: "loan-calculator", name: "Loan Calculator", description: "Estimate loan cost, interest and tenure.", category: "finance", icon: Calculator, status: "live" },
   { slug: "savings-goal-calculator", name: "Savings Goal Calculator", description: "See exactly when you'll hit your savings goal or what it takes to get there.", category: "finance", icon: PiggyBank, status: "live" },
