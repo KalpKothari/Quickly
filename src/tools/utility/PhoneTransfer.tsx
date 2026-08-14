@@ -3,9 +3,8 @@
  *
  * Architecture:
  * - Direct WebRTC P2P DataChannel via PeerJS
- * - Robust 2-way handshake (Receiver connects -> sends ACK -> Sender streams)
- * - ArrayBuffer chunking with Uint8Array transfer for cross-mobile compatibility (iOS Safari & Android Chrome)
- * - Supports Images, Documents, and Video streaming
+ * - Complete STUN + OpenRelay TURN fallback for cross-cellular (4G/5G) and Wi-Fi networks
+ * - Explicit chunk pacing with ArrayBuffer streaming
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -30,22 +29,19 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const CHUNK_SIZE = 32 * 1024; // 32 KB binary chunks for optimized media throughput
-const MAX_FILE_SIZE = 300 * 1024 * 1024; // 300 MB max guard
+const CHUNK_SIZE = 16 * 1024; // 16 KB chunks for maximum mobile reliability
+const MAX_FILE_SIZE = 300 * 1024 * 1024; // 300 MB max
 const ALLOWED_TYPES = [
-  // Images
   "image/jpeg",
   "image/png",
   "image/gif",
   "image/webp",
   "image/svg+xml",
-  // Videos
   "video/mp4",
   "video/webm",
-  "video/quicktime", // .mov from iPhones
-  "video/x-matroska", // .mkv
+  "video/quicktime",
+  "video/x-matroska",
   "video/avi",
-  // Documents
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -57,6 +53,7 @@ const ALLOWED_TYPES = [
   "text/csv",
 ];
 
+// Production ICE configuration with reliable public STUN and open TURN relays
 const PEER_CONFIG = {
   config: {
     iceServers: [
@@ -64,7 +61,23 @@ const PEER_CONFIG = {
       { urls: "stun:stun1.l.google.com:19302" },
       { urls: "stun:stun2.l.google.com:19302" },
       { urls: "stun:stun.cloudflare.com:3478" },
+      {
+        urls: "turn:openrelay.metered.ca:80",
+        username: "openrelayproject",
+        credential: "openrelayproject",
+      },
+      {
+        urls: "turn:openrelay.metered.ca:443",
+        username: "openrelayproject",
+        credential: "openrelayproject",
+      },
+      {
+        urls: "turn:openrelay.metered.ca:443?transport=tcp",
+        username: "openrelayproject",
+        credential: "openrelayproject",
+      },
     ],
+    iceCandidatePoolSize: 10,
   },
 };
 
@@ -224,7 +237,7 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
 
   fileRef.current = file;
 
-  // 1. Initialize Sender Peer
+  // Initialize Sender Peer on Component Load
   useEffect(() => {
     const peer = new Peer(PEER_CONFIG);
     peerRef.current = peer;
@@ -238,7 +251,7 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
       setState("connecting");
 
       conn.on("open", () => {
-        // Send meta right away once channel opens
+        // Send meta packet immediately upon open
         if (fileRef.current) {
           conn.send({
             type: "META",
@@ -250,40 +263,38 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
       });
 
       conn.on("data", async (data: any) => {
-        // Receiver confirms readiness -> begin streaming
         if (data?.type === "READY_TO_RECEIVE" && fileRef.current) {
           setState("sending");
-          const selectedFile = fileRef.current;
-          const arrayBuf = await selectedFile.arrayBuffer();
+          const targetFile = fileRef.current;
+          const arrayBuf = await targetFile.arrayBuffer();
           let offset = 0;
 
-          const streamChunk = () => {
+          const sendNext = () => {
             while (offset < arrayBuf.byteLength) {
-              const slice = arrayBuf.slice(offset, offset + CHUNK_SIZE);
-              conn.send(slice);
-              offset += slice.byteLength;
+              const chunk = arrayBuf.slice(offset, offset + CHUNK_SIZE);
+              conn.send(chunk);
+              offset += chunk.byteLength;
               setProgress(Math.round((offset / arrayBuf.byteLength) * 100));
 
-              // Yield event loop to avoid channel buffer overflows
-              if (offset % (CHUNK_SIZE * 8) === 0) {
-                setTimeout(streamChunk, 10);
+              // Yield to prevent socket congestion
+              if (offset % (CHUNK_SIZE * 4) === 0) {
+                setTimeout(sendNext, 5);
                 return;
               }
             }
 
-            // Transfer completed
             conn.send({ type: "DONE" });
             setState("done");
           };
 
-          streamChunk();
+          sendNext();
         }
       });
 
       conn.on("close", () => {
         setState((curr) => {
           if (curr !== "done") {
-            setErrorMsg("Connection lost with the receiver.");
+            setErrorMsg("Connection closed by the receiving phone.");
             return "error";
           }
           return curr;
@@ -291,13 +302,13 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
       });
 
       conn.on("error", () => {
-        setErrorMsg("Direct peer connection error.");
+        setErrorMsg("Direct peer communication error.");
         setState("error");
       });
     });
 
-    peer.on("error", () => {
-      setErrorMsg("Failed to connect to signaling network. Check internet connection.");
+    peer.on("error", (err) => {
+      setErrorMsg(`Signaling error: ${err.message || "Failed to reach relay"}`);
       setState("error");
     });
 
@@ -306,7 +317,7 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
     };
   }, []);
 
-  // 2. Draw QR code
+  // Draw QR
   useEffect(() => {
     if (state !== "qr-waiting" || !qrCanvasRef.current || !peerId) return;
 
@@ -538,6 +549,7 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const peerRef = useRef<Peer | null>(null);
+  const peerReadyRef = useRef<boolean>(false);
   const connRef = useRef<DataConnection | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const metaRef = useRef<FileMeta | null>(null);
@@ -549,6 +561,15 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
   useEffect(() => {
     const peer = new Peer(PEER_CONFIG);
     peerRef.current = peer;
+
+    peer.on("open", () => {
+      peerReadyRef.current = true;
+    });
+
+    peer.on("error", (err) => {
+      setErrorMsg(`Receiver signaling error: ${err.message || "Failed"}`);
+      setState("error");
+    });
 
     return () => {
       peer.destroy();
@@ -569,14 +590,11 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
     }
   }, []);
 
-  const connectToSender = useCallback(
+  const initiateConnection = useCallback(
     (senderPeerId: string) => {
-      stopCamera();
-      setState("connecting");
-
-      if (!peerRef.current) {
-        setErrorMsg("Signaling client error. Please refresh and try again.");
-        setState("error");
+      if (!peerRef.current || !peerReadyRef.current) {
+        // Wait 100ms for receiver peer to open if race condition occurs
+        setTimeout(() => initiateConnection(senderPeerId), 100);
         return;
       }
 
@@ -588,7 +606,7 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
       });
 
       conn.on("data", (data: any) => {
-        // 1. Meta packet received from sender -> acknowledge and ask to start data stream
+        // 1. Meta packet
         if (data?.type === "META") {
           metaRef.current = {
             name: data.name,
@@ -602,7 +620,7 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
           return;
         }
 
-        // 2. Transfer completion packet
+        // 2. Completion packet
         if (data?.type === "DONE") {
           const combinedBlob = new Blob(chunksRef.current, {
             type: metaRef.current?.type || "application/octet-stream",
@@ -612,7 +630,7 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
           return;
         }
 
-        // 3. Binary chunk packet (ArrayBuffer or Uint8Array)
+        // 3. Binary chunk packet
         let chunkBytes: Uint8Array;
         if (data instanceof ArrayBuffer) {
           chunkBytes = new Uint8Array(data);
@@ -637,7 +655,7 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
       conn.on("close", () => {
         setState((curr) => {
           if (curr !== "done") {
-            setErrorMsg("Connection with sender lost.");
+            setErrorMsg("Connection closed by the sending phone.");
             return "error";
           }
           return curr;
@@ -645,11 +663,20 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
       });
 
       conn.on("error", () => {
-        setErrorMsg("Failed to connect to sender phone.");
+        setErrorMsg("Failed to establish P2P connection with sender.");
         setState("error");
       });
     },
-    [stopCamera]
+    []
+  );
+
+  const connectToSender = useCallback(
+    (senderPeerId: string) => {
+      stopCamera();
+      setState("connecting");
+      initiateConnection(senderPeerId);
+    },
+    [stopCamera, initiateConnection]
   );
 
   // Start Camera & Frame Detection
@@ -865,7 +892,6 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
                 autoPlay
                 className="w-full aspect-square object-cover"
               />
-              {/* Scanning frame overlay */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="w-48 h-48 border-4 border-white/80 rounded-2xl shadow-lg" />
               </div>
