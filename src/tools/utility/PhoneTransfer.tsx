@@ -1,11 +1,11 @@
 /**
- * PhoneTransfer.tsx — Quickly Phone-to-Phone Transfer (High-Speed Turbo Edition)
+ * PhoneTransfer.tsx — Quickly Phone-to-Phone Transfer
  *
- * Optimizations:
- * - 64 KB binary chunks for maximum mobile data throughput
- * - Native backpressure stream (bufferedAmountLowThreshold) with zero artificial delay
- * - Global Anycast low-latency STUN & TURN network
- * - Receiver ACK sync for progress tracking
+ * Architecture:
+ * - Direct WebRTC P2P DataChannel via PeerJS
+ * - Multi-file streaming support with sequential batching
+ * - Real-time Receiver ACK syncing (both phones progress in 1:1 lockstep)
+ * - Safe screen lock notice preventing premature tab exit
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -26,12 +26,16 @@ import {
   Loader2,
   AlertTriangle,
   Smartphone,
+  Copy,
+  Check,
   Zap,
+  Lock,
+  Wifi,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const CHUNK_SIZE = 64 * 1024; // 64 KB chunks for ultra-fast throughput
+const CHUNK_SIZE = 16 * 1024; // 16 KB binary chunks
 const MAX_TOTAL_SIZE = 500 * 1024 * 1024; // 500 MB combined batch guard
 const ALLOWED_TYPES = [
   "image/jpeg",
@@ -55,14 +59,13 @@ const ALLOWED_TYPES = [
   "text/csv",
 ];
 
-// Low-latency Anycast STUN & TURN servers for fast cellular routing in India
 const PEER_CONFIG = {
   config: {
     iceServers: [
-      { urls: "stun:stun.cloudflare.com:3478" },
       { urls: "stun:stun.l.google.com:19302" },
       { urls: "stun:stun1.l.google.com:19302" },
       { urls: "stun:stun2.l.google.com:19302" },
+      { urls: "stun:stun.cloudflare.com:3478" },
       {
         urls: "turn:openrelay.metered.ca:80",
         username: "openrelayproject",
@@ -70,6 +73,11 @@ const PEER_CONFIG = {
       },
       {
         urls: "turn:openrelay.metered.ca:443",
+        username: "openrelayproject",
+        credential: "openrelayproject",
+      },
+      {
+        urls: "turn:openrelay.metered.ca:443?transport=tcp",
         username: "openrelayproject",
         credential: "openrelayproject",
       },
@@ -155,24 +163,118 @@ export default function PhoneTransfer() {
   );
 }
 
-// ─── Desktop Block ────────────────────────────────────────────────────────────
+// ─── Desktop View (Redesigned & Clean) ─────────────────────────────────────────
 
 function DesktopBlock() {
+  const [copied, setCopied] = useState(false);
+  const [pageUrl, setPageUrl] = useState("");
+  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const url = window.location.href;
+      setPageUrl(url);
+      if (qrCanvasRef.current) {
+        QRCode.toCanvas(qrCanvasRef.current, url, {
+          width: 180,
+          color: { dark: "#111827", light: "#ffffff" },
+          errorCorrectionLevel: "M",
+          margin: 1,
+        }).catch(() => {});
+      }
+    }
+  }, []);
+
+  const handleCopy = () => {
+    if (!pageUrl) return;
+    navigator.clipboard.writeText(pageUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
-    <div className="max-w-lg mx-auto">
-      <div className="rounded-2xl border-2 border-foreground bg-card p-8 shadow-[4px_4px_0_0_var(--color-foreground)] text-center space-y-4">
-        <span className="flex h-14 w-14 mx-auto items-center justify-center rounded-full border-2 border-foreground bg-primary/15">
-          <Smartphone className="h-7 w-7" />
-        </span>
-        <div className="space-y-1">
-          <p className="text-lg font-bold">Built for Mobile</p>
-          <p className="text-sm text-muted-foreground">
-            Phone-to-Phone Transfer is designed for mobile devices. Open this page on
-            your phone to send or receive files directly between two devices.
-          </p>
-        </div>
-        <div className="rounded-xl border-2 border-foreground bg-secondary/40 px-4 py-3 text-xs font-medium text-muted-foreground">
-          Scan this page's URL from your phone, or copy the link and open it there.
+    <div className="max-w-4xl mx-auto py-10 px-4">
+      {/* Main Single Card Container */}
+      <div className="rounded-3xl border-2 border-foreground bg-card p-8 md:p-12 shadow-[6px_6px_0_0_var(--color-foreground)]">
+        <div className="grid md:grid-cols-12 gap-10 items-center">
+          
+          {/* Left Column: Clear & Friendly Pitch */}
+          <div className="md:col-span-7 space-y-6">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border-2 border-foreground bg-primary/10 text-xs font-bold">
+              <Smartphone className="h-4 w-4" />
+              Direct Phone-to-Phone Transfer
+            </div>
+
+            <div className="space-y-3">
+              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground leading-tight">
+                Move files between phones instantly.
+              </h1>
+              <p className="text-base text-muted-foreground leading-relaxed">
+                Send photos, videos, and full-resolution documents directly to another phone nearby. No logins, no cloud storage, and zero quality compression.
+              </p>
+            </div>
+
+            {/* Simple Value Points - No Tech Jargon */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/20 text-foreground">
+                  <Zap className="h-3.5 w-3.5" />
+                </div>
+                <p className="text-sm text-foreground">
+                  <strong>Instant & direct:</strong> Files travel straight phone-to-phone without waiting for cloud uploads.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/20 text-foreground">
+                  <Lock className="h-3.5 w-3.5" />
+                </div>
+                <p className="text-sm text-foreground">
+                  <strong>100% private:</strong> Your data is never saved on any servers or databases.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/20 text-foreground">
+                  <Wifi className="h-3.5 w-3.5" />
+                </div>
+                <p className="text-sm text-foreground">
+                  <strong>Original quality:</strong> Media is never resized or compressed during the transfer.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Scan to open on mobile */}
+          <div className="md:col-span-5 flex flex-col items-center justify-center text-center p-6 rounded-2xl bg-secondary/30 border-2 border-foreground/30 space-y-4">
+            <div className="p-3 bg-white rounded-2xl border-2 border-foreground shadow-[3px_3px_0_0_var(--color-foreground)]">
+              <canvas ref={qrCanvasRef} />
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-sm font-bold">Open on your phone</p>
+              <p className="text-xs text-muted-foreground">
+                Scan with your phone's camera to start sending or receiving.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-xl border-2 border-foreground bg-background px-4 py-2.5 text-xs font-bold shadow-[2px_2px_0_0_var(--color-foreground)] hover:bg-muted transition-colors"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-green-600" /> Link Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5" /> Copy Link to Share
+                </>
+              )}
+            </button>
+          </div>
+
         </div>
       </div>
     </div>
@@ -278,14 +380,9 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
           return;
         }
 
-        // Full-speed native backpressure streaming
+        // When receiver is ready to receive the stream
         if (data?.type === "READY_FOR_FILES" && filesRef.current.length > 0) {
           setState("sending");
-
-          const rawDataChannel = conn.dataChannel;
-          if (rawDataChannel) {
-            rawDataChannel.bufferedAmountLowThreshold = 256 * 1024; // 256 KB buffer ceiling
-          }
 
           const fileList = filesRef.current;
           for (let i = 0; i < fileList.length; i++) {
@@ -295,26 +392,15 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
             const arrayBuf = await currentFile.arrayBuffer();
             let offset = 0;
 
-            await new Promise<void>((resolve) => {
-              const pump = () => {
-                while (offset < arrayBuf.byteLength) {
-                  if (rawDataChannel && rawDataChannel.bufferedAmount > 512 * 1024) {
-                    rawDataChannel.onbufferedamountlow = () => {
-                      rawDataChannel.onbufferedamountlow = null;
-                      pump();
-                    };
-                    return;
-                  }
+            while (offset < arrayBuf.byteLength) {
+              const chunk = arrayBuf.slice(offset, offset + CHUNK_SIZE);
+              conn.send(chunk);
+              offset += chunk.byteLength;
 
-                  const chunk = arrayBuf.slice(offset, offset + CHUNK_SIZE);
-                  conn.send(chunk);
-                  offset += chunk.byteLength;
-                }
-                resolve();
-              };
-
-              pump();
-            });
+              if (offset % (CHUNK_SIZE * 4) === 0) {
+                await new Promise((r) => setTimeout(r, 4));
+              }
+            }
 
             conn.send({ type: "FILE_DONE", index: i });
           }
@@ -570,21 +656,16 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
           <div className="flex flex-col items-center gap-3 py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm font-bold">Connecting…</p>
-            <p className="text-xs text-muted-foreground">Establishing direct high-speed P2P pipe</p>
+            <p className="text-xs text-muted-foreground">Establishing direct connection</p>
           </div>
         )}
 
         {state === "sending" && (
           <div className="space-y-4 py-2">
             <div className="rounded-xl border-2 border-foreground bg-secondary/30 p-3 space-y-1">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold truncate">
-                  Sending file {currentFileIndex + 1} of {files.length}: {files[currentFileIndex]?.name}
-                </p>
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-primary">
-                  <Zap className="h-3 w-3 fill-current" /> Turbo
-                </span>
-              </div>
+              <p className="text-xs font-bold truncate">
+                Sending file {currentFileIndex + 1} of {files.length}: {files[currentFileIndex]?.name}
+              </p>
               <p className="text-[11px] text-muted-foreground">
                 Total size: {formatBytes(totalBytes)}
               </p>
@@ -592,12 +673,12 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
 
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-bold">
-                <span>Transfer Progress</span>
+                <span>Synchronized Progress</span>
                 <span>{progress}%</span>
               </div>
               <div className="h-3 rounded-full border-2 border-foreground bg-background overflow-hidden">
                 <div
-                  className="h-full bg-primary transition-all duration-100"
+                  className="h-full bg-primary transition-all duration-150"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -605,7 +686,7 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
 
             <div className="rounded-xl border border-foreground/20 bg-background/60 p-2.5 text-center">
               <p className="text-[11px] font-bold text-foreground">
-                Keep both phones unlocked on this page until the transfer reaches 100%.
+                Do not close or leave this screen on either phone until transfer completes.
               </p>
             </div>
 
@@ -1051,14 +1132,9 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
         {state === "receiving" && (
           <div className="space-y-4 py-2">
             <div className="rounded-xl border-2 border-foreground bg-secondary/30 p-3 space-y-1">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold truncate">
-                  Receiving file {currentFileIndex + 1} of {incomingMetas.length}: {incomingMetas[currentFileIndex]?.name}
-                </p>
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-primary">
-                  <Zap className="h-3 w-3 fill-current" /> Turbo
-                </span>
-              </div>
+              <p className="text-xs font-bold truncate">
+                Receiving file {currentFileIndex + 1} of {incomingMetas.length}: {incomingMetas[currentFileIndex]?.name}
+              </p>
               <p className="text-[11px] text-muted-foreground">
                 Total size: {formatBytes(totalBatchSize)}
               </p>
@@ -1066,12 +1142,12 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
 
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-bold">
-                <span>Transfer Progress</span>
+                <span>Synchronized Progress</span>
                 <span>{progress}%</span>
               </div>
               <div className="h-3 rounded-full border-2 border-foreground bg-background overflow-hidden">
                 <div
-                  className="h-full bg-primary transition-all duration-100"
+                  className="h-full bg-primary transition-all duration-150"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -1079,7 +1155,7 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
 
             <div className="rounded-xl border border-foreground/20 bg-background/60 p-2.5 text-center">
               <p className="text-[11px] font-bold text-foreground">
-                Keep both phones unlocked on this page until the transfer reaches 100%.
+                Do not close or leave this screen on either phone until transfer completes.
               </p>
             </div>
 
@@ -1186,8 +1262,8 @@ function PrivacyBadge() {
       <div>
         <p className="text-xs font-bold">Private transfer</p>
         <p className="text-[11px] font-medium text-muted-foreground leading-relaxed">
-          No account. No cloud storage. Files travel directly between devices via WebRTC.
-          A temporary session ID is used for connection setup only — your files are never stored.
+          Quickly works best for images and everyday files. 
+          For larger videos or files, use a direct Wi-Fi connection for the fastest transfer experience.
         </p>
       </div>
     </div>
