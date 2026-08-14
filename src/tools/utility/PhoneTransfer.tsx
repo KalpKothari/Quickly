@@ -3,8 +3,9 @@
  *
  * Architecture:
  * - Direct WebRTC P2P DataChannel via PeerJS
- * - Complete STUN + OpenRelay TURN fallback for cross-cellular (4G/5G) and Wi-Fi networks
- * - Explicit chunk pacing with ArrayBuffer streaming
+ * - Multi-file streaming support with sequential batching
+ * - Real-time Receiver ACK syncing (both phones progress in 1:1 lockstep)
+ * - Safe screen lock notice preventing premature tab exit
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -25,12 +26,13 @@ import {
   Loader2,
   AlertTriangle,
   Smartphone,
+  Plus,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const CHUNK_SIZE = 16 * 1024; // 16 KB chunks for maximum mobile reliability
-const MAX_FILE_SIZE = 300 * 1024 * 1024; // 300 MB max
+const CHUNK_SIZE = 16 * 1024; // 16 KB binary chunks
+const MAX_TOTAL_SIZE = 500 * 1024 * 1024; // 500 MB combined batch guard
 const ALLOWED_TYPES = [
   "image/jpeg",
   "image/png",
@@ -53,7 +55,6 @@ const ALLOWED_TYPES = [
   "text/csv",
 ];
 
-// Production ICE configuration with reliable public STUN and open TURN relays
 const PEER_CONFIG = {
   config: {
     iceServers: [
@@ -104,6 +105,11 @@ interface FileMeta {
   name: string;
   type: string;
   size: number;
+}
+
+interface ReceivedItem {
+  meta: FileMeta;
+  blob: Blob;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -197,7 +203,7 @@ function RoleSelect({ onSelect }: { onSelect: (r: Role) => void }) {
             </span>
             <span className="text-sm font-bold">Send</span>
             <span className="text-[11px] font-medium text-muted-foreground group-hover:text-primary-foreground/80 text-center">
-              Share a file from this phone
+              Share files from this phone
             </span>
           </button>
           <button
@@ -224,20 +230,21 @@ function RoleSelect({ onSelect }: { onSelect: (r: Role) => void }) {
 
 function SenderFlow({ onReset }: { onReset: () => void }) {
   const [state, setState] = useState<SendState>("file-select");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
   const [peerId, setPeerId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const peerRef = useRef<Peer | null>(null);
   const connRef = useRef<DataConnection | null>(null);
-  const fileRef = useRef<File | null>(null);
+  const filesRef = useRef<File[]>([]);
 
-  fileRef.current = file;
+  filesRef.current = files;
 
-  // Initialize Sender Peer on Component Load
+  // Initialize Sender Peer on mount
   useEffect(() => {
     const peer = new Peer(PEER_CONFIG);
     peerRef.current = peer;
@@ -251,43 +258,62 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
       setState("connecting");
 
       conn.on("open", () => {
-        // Send meta packet immediately upon open
-        if (fileRef.current) {
+        if (filesRef.current.length > 0) {
+          const fileMetas: FileMeta[] = filesRef.current.map((f) => ({
+            name: f.name,
+            size: f.size,
+            type: f.type,
+          }));
+          const totalBatchSize = filesRef.current.reduce((acc, f) => acc + f.size, 0);
+
           conn.send({
-            type: "META",
-            name: fileRef.current.name,
-            size: fileRef.current.size,
-            mime: fileRef.current.type,
+            type: "BATCH_META",
+            files: fileMetas,
+            totalSize: totalBatchSize,
           });
         }
       });
 
       conn.on("data", async (data: any) => {
-        if (data?.type === "READY_TO_RECEIVE" && fileRef.current) {
-          setState("sending");
-          const targetFile = fileRef.current;
-          const arrayBuf = await targetFile.arrayBuffer();
-          let offset = 0;
+        // Sync sender progress directly with receiver's verified bytes
+        if (data?.type === "PROGRESS_SYNC") {
+          setProgress(data.percent);
+          setCurrentFileIndex(data.fileIndex);
+          return;
+        }
 
-          const sendNext = () => {
+        // When receiver is ready to receive the stream
+        if (data?.type === "READY_FOR_FILES" && filesRef.current.length > 0) {
+          setState("sending");
+
+          const fileList = filesRef.current;
+          for (let i = 0; i < fileList.length; i++) {
+            const currentFile = fileList[i];
+            conn.send({ type: "START_FILE", index: i });
+
+            const arrayBuf = await currentFile.arrayBuffer();
+            let offset = 0;
+
             while (offset < arrayBuf.byteLength) {
               const chunk = arrayBuf.slice(offset, offset + CHUNK_SIZE);
               conn.send(chunk);
               offset += chunk.byteLength;
-              setProgress(Math.round((offset / arrayBuf.byteLength) * 100));
 
-              // Yield to prevent socket congestion
               if (offset % (CHUNK_SIZE * 4) === 0) {
-                setTimeout(sendNext, 5);
-                return;
+                await new Promise((r) => setTimeout(r, 4));
               }
             }
 
-            conn.send({ type: "DONE" });
-            setState("done");
-          };
+            conn.send({ type: "FILE_DONE", index: i });
+          }
 
-          sendNext();
+          conn.send({ type: "ALL_DONE" });
+        }
+
+        // Final completion confirmation received from receiver
+        if (data?.type === "TRANSFER_COMPLETE_ACK") {
+          setProgress(100);
+          setState("done");
         }
       });
 
@@ -332,17 +358,26 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFileError(null);
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (!ALLOWED_TYPES.includes(f.type)) {
-      setFileError("Unsupported file type. Choose an image, video, or document.");
+    const selected = Array.from(e.target.files || []);
+    if (!selected.length) return;
+
+    const invalid = selected.find((f) => !ALLOWED_TYPES.includes(f.type));
+    if (invalid) {
+      setFileError(`"${invalid.name}" has an unsupported format.`);
       return;
     }
-    if (f.size > MAX_FILE_SIZE) {
-      setFileError("File too large. Maximum size is 300 MB.");
+
+    const totalSize = selected.reduce((acc, f) => acc + f.size, 0);
+    if (totalSize > MAX_TOTAL_SIZE) {
+      setFileError("Total batch size exceeds 500 MB.");
       return;
     }
-    setFile(f);
+
+    setFiles((prev) => [...prev, ...selected]);
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleCancel = () => {
@@ -352,18 +387,20 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
 
   const handleRetry = () => {
     connRef.current?.close();
-    setFile(null);
+    setFiles([]);
     setProgress(0);
     setErrorMsg(null);
     setState("file-select");
   };
+
+  const totalBytes = files.reduce((acc, f) => acc + f.size, 0);
 
   if (state === "cancelled") {
     return (
       <StatusCard
         icon={<X className="h-7 w-7" />}
         title="Transfer cancelled"
-        desc="The transfer was cancelled. No file was sent."
+        desc="The transfer was cancelled. No files were sent."
         action={<ResetButton label="Start over" onClick={onReset} />}
       />
     );
@@ -402,8 +439,8 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
       <StatusCard
         icon={<CheckCircle2 className="h-7 w-7 text-green-600" />}
         title="Transfer complete"
-        desc={`"${file?.name}" was sent successfully.`}
-        action={<ResetButton label="Send another" onClick={onReset} />}
+        desc={`All ${files.length} file(s) (${formatBytes(totalBytes)}) were sent successfully.`}
+        action={<ResetButton label="Send more files" onClick={onReset} />}
       />
     );
   }
@@ -416,7 +453,7 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
             <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-foreground bg-primary/15 text-[10px]">
               ↑
             </span>
-            Send a file
+            Send files ({files.length})
           </p>
           <button
             type="button"
@@ -429,26 +466,31 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
 
         {state === "file-select" && (
           <div className="space-y-3">
-            {!file ? (
-              <label className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-foreground/40 bg-background cursor-pointer px-4 py-10 hover:border-foreground/80 transition-colors">
-                <span className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-foreground bg-primary/15">
-                  <Upload className="h-6 w-6" />
-                </span>
-                <div className="text-center">
-                  <p className="text-sm font-bold">Choose media or document</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Images, Videos (MP4, MOV, WebM) & Docs · up to 300 MB
-                  </p>
-                </div>
-                <input
-                  type="file"
-                  className="sr-only"
-                  accept={ALLOWED_TYPES.join(",")}
-                  onChange={handleFileSelect}
-                />
-              </label>
-            ) : (
-              <FileCard file={file} onRemove={() => setFile(null)} />
+            <label className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-foreground/40 bg-background cursor-pointer px-4 py-8 hover:border-foreground/80 transition-colors">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-foreground bg-primary/15">
+                <Upload className="h-6 w-6" />
+              </span>
+              <div className="text-center">
+                <p className="text-sm font-bold">Select images, videos, or docs</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Select multiple files at once · up to 500 MB total
+                </p>
+              </div>
+              <input
+                type="file"
+                multiple
+                className="sr-only"
+                accept={ALLOWED_TYPES.join(",")}
+                onChange={handleFileSelect}
+              />
+            </label>
+
+            {files.length > 0 && (
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {files.map((f, i) => (
+                  <FileCard key={`${f.name}-${i}`} file={f} onRemove={() => removeFile(i)} />
+                ))}
+              </div>
             )}
 
             {fileError && (
@@ -457,21 +499,31 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
               </p>
             )}
 
-            {file && (
-              <button
-                type="button"
-                onClick={() => setState("qr-waiting")}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border-2 border-foreground bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] hover:-translate-y-0.5 hover:shadow-[4px_4px_0_0_var(--color-foreground)] transition-transform"
-              >
-                Generate QR code →
-              </button>
+            {files.length > 0 && (
+              <div className="space-y-2 pt-2">
+                <div className="flex justify-between text-xs font-bold text-muted-foreground px-1">
+                  <span>Total files: {files.length}</span>
+                  <span>{formatBytes(totalBytes)}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setState("qr-waiting")}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl border-2 border-foreground bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] hover:-translate-y-0.5 hover:shadow-[4px_4px_0_0_var(--color-foreground)] transition-transform"
+                >
+                  Generate QR code →
+                </button>
+              </div>
             )}
           </div>
         )}
 
-        {state === "qr-waiting" && file && (
+        {state === "qr-waiting" && files.length > 0 && (
           <div className="space-y-4">
-            <FileCard file={file} />
+            <div className="rounded-xl border-2 border-foreground bg-background px-3 py-2 text-xs font-bold flex justify-between">
+              <span>{files.length} file(s) ready to send</span>
+              <span>{formatBytes(totalBytes)}</span>
+            </div>
+
             <div className="flex flex-col items-center gap-3 py-2">
               <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                 Scan this QR from the other phone
@@ -491,6 +543,7 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
                 <span className="text-xs font-medium">Waiting for receiver…</span>
               </div>
             </div>
+
             <button
               type="button"
               onClick={handleCancel}
@@ -511,19 +564,34 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
 
         {state === "sending" && (
           <div className="space-y-4 py-2">
-            <FileCard file={file!} />
+            <div className="rounded-xl border-2 border-foreground bg-secondary/30 p-3 space-y-1">
+              <p className="text-xs font-bold truncate">
+                Sending file {currentFileIndex + 1} of {files.length}: {files[currentFileIndex]?.name}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Total size: {formatBytes(totalBytes)}
+              </p>
+            </div>
+
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-bold">
-                <span>Sending…</span>
+                <span>Synchronized Progress</span>
                 <span>{progress}%</span>
               </div>
               <div className="h-3 rounded-full border-2 border-foreground bg-background overflow-hidden">
                 <div
-                  className="h-full bg-primary transition-all"
+                  className="h-full bg-primary transition-all duration-150"
                   style={{ width: `${progress}%` }}
                 />
               </div>
             </div>
+
+            <div className="rounded-xl border border-foreground/20 bg-background/60 p-2.5 text-center">
+              <p className="text-[11px] font-bold text-foreground">
+                Do not close or leave this screen on either phone until transfer completes.
+              </p>
+            </div>
+
             <button
               type="button"
               onClick={handleCancel}
@@ -542,18 +610,23 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
 
 function ReceiverFlow({ onReset }: { onReset: () => void }) {
   const [state, setState] = useState<ReceiveState>("scanner");
-  const [incomingMeta, setIncomingMeta] = useState<FileMeta | null>(null);
+  const [incomingMetas, setIncomingMetas] = useState<FileMeta[]>([]);
+  const [totalBatchSize, setTotalBatchSize] = useState(0);
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [progress, setProgress] = useState(0);
-  const [receivedBlob, setReceivedBlob] = useState<Blob | null>(null);
+  const [receivedItems, setReceivedItems] = useState<ReceivedItem[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const peerRef = useRef<Peer | null>(null);
   const peerReadyRef = useRef<boolean>(false);
   const connRef = useRef<DataConnection | null>(null);
-  const chunksRef = useRef<BlobPart[]>([]);
-  const metaRef = useRef<FileMeta | null>(null);
-  const receivedBytesRef = useRef(0);
+
+  const batchMetasRef = useRef<FileMeta[]>([]);
+  const totalBatchSizeRef = useRef<number>(0);
+  const activeFileIndexRef = useRef<number>(0);
+  const currentChunksRef = useRef<BlobPart[]>([]);
+  const totalBytesReceivedRef = useRef<number>(0);
   const animFrameRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
@@ -590,85 +663,107 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
     }
   }, []);
 
-  const initiateConnection = useCallback(
-    (senderPeerId: string) => {
-      if (!peerRef.current || !peerReadyRef.current) {
-        // Wait 100ms for receiver peer to open if race condition occurs
-        setTimeout(() => initiateConnection(senderPeerId), 100);
+  const initiateConnection = useCallback((senderPeerId: string) => {
+    if (!peerRef.current || !peerReadyRef.current) {
+      setTimeout(() => initiateConnection(senderPeerId), 100);
+      return;
+    }
+
+    const conn = peerRef.current.connect(senderPeerId, { reliable: true });
+    connRef.current = conn;
+
+    conn.on("open", () => {
+      setState("receiving");
+    });
+
+    conn.on("data", (data: any) => {
+      // 1. Batch metadata announcement
+      if (data?.type === "BATCH_META") {
+        batchMetasRef.current = data.files;
+        totalBatchSizeRef.current = data.totalSize;
+        setIncomingMetas(data.files);
+        setTotalBatchSize(data.totalSize);
+        totalBytesReceivedRef.current = 0;
+        setReceivedItems([]);
+
+        conn.send({ type: "READY_FOR_FILES" });
         return;
       }
 
-      const conn = peerRef.current.connect(senderPeerId, { reliable: true });
-      connRef.current = conn;
+      // 2. Start of a specific file
+      if (data?.type === "START_FILE") {
+        activeFileIndexRef.current = data.index;
+        setCurrentFileIndex(data.index);
+        currentChunksRef.current = [];
+        return;
+      }
 
-      conn.on("open", () => {
-        setState("receiving");
-      });
-
-      conn.on("data", (data: any) => {
-        // 1. Meta packet
-        if (data?.type === "META") {
-          metaRef.current = {
-            name: data.name,
-            size: data.size,
-            type: data.mime || "application/octet-stream",
-          };
-          setIncomingMeta(metaRef.current);
-          chunksRef.current = [];
-          receivedBytesRef.current = 0;
-          conn.send({ type: "READY_TO_RECEIVE" });
-          return;
-        }
-
-        // 2. Completion packet
-        if (data?.type === "DONE") {
-          const combinedBlob = new Blob(chunksRef.current, {
-            type: metaRef.current?.type || "application/octet-stream",
-          });
-          setReceivedBlob(combinedBlob);
-          setState("done");
-          return;
-        }
-
-        // 3. Binary chunk packet
-        let chunkBytes: Uint8Array;
-        if (data instanceof ArrayBuffer) {
-          chunkBytes = new Uint8Array(data);
-        } else if (data?.buffer instanceof ArrayBuffer) {
-          chunkBytes = new Uint8Array(data.buffer);
-        } else if (data instanceof Uint8Array) {
-          chunkBytes = data;
-        } else {
-          return;
-        }
-
-        chunksRef.current.push(chunkBytes as unknown as BlobPart);
-        receivedBytesRef.current += chunkBytes.byteLength;
-
-        if (metaRef.current?.size) {
-          setProgress(
-            Math.min(100, Math.round((receivedBytesRef.current / metaRef.current.size) * 100))
-          );
-        }
-      });
-
-      conn.on("close", () => {
-        setState((curr) => {
-          if (curr !== "done") {
-            setErrorMsg("Connection closed by the sending phone.");
-            return "error";
-          }
-          return curr;
+      // 3. Single file completion
+      if (data?.type === "FILE_DONE") {
+        const meta = batchMetasRef.current[data.index];
+        const blob = new Blob(currentChunksRef.current, {
+          type: meta?.type || "application/octet-stream",
         });
-      });
 
-      conn.on("error", () => {
-        setErrorMsg("Failed to establish P2P connection with sender.");
-        setState("error");
+        setReceivedItems((prev) => [...prev, { meta, blob }]);
+        currentChunksRef.current = [];
+        return;
+      }
+
+      // 4. Entire batch completed
+      if (data?.type === "ALL_DONE") {
+        conn.send({ type: "TRANSFER_COMPLETE_ACK" });
+        setProgress(100);
+        setState("done");
+        return;
+      }
+
+      // 5. Binary chunk payload
+      let chunkBytes: Uint8Array;
+      if (data instanceof ArrayBuffer) {
+        chunkBytes = new Uint8Array(data);
+      } else if (data?.buffer instanceof ArrayBuffer) {
+        chunkBytes = new Uint8Array(data.buffer);
+      } else if (data instanceof Uint8Array) {
+        chunkBytes = data;
+      } else {
+        return;
+      }
+
+      currentChunksRef.current.push(chunkBytes as unknown as BlobPart);
+      totalBytesReceivedRef.current += chunkBytes.byteLength;
+
+      if (totalBatchSizeRef.current > 0) {
+        const calculatedPercent = Math.min(
+          99,
+          Math.round((totalBytesReceivedRef.current / totalBatchSizeRef.current) * 100)
+        );
+        setProgress(calculatedPercent);
+
+        // Send progress heartbeat ACK back to sender to keep both devices in sync
+        conn.send({
+          type: "PROGRESS_SYNC",
+          percent: calculatedPercent,
+          fileIndex: activeFileIndexRef.current,
+        });
+      }
+    });
+
+    conn.on("close", () => {
+      setState((curr) => {
+        if (curr !== "done") {
+          setErrorMsg("Connection closed by the sending phone.");
+          return "error";
+        }
+        return curr;
       });
-    },
-    []
-  );
+    });
+
+    conn.on("error", () => {
+      setErrorMsg("Failed to establish P2P connection with sender.");
+      setState("error");
+    });
+  }, []);
 
   const connectToSender = useCallback(
     (senderPeerId: string) => {
@@ -679,7 +774,7 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
     [stopCamera, initiateConnection]
   );
 
-  // Start Camera & Frame Detection
+  // Camera QR scanner loop
   useEffect(() => {
     if (state !== "scanner") return;
 
@@ -740,14 +835,21 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
     };
   }, [state, connectToSender, stopCamera]);
 
-  const handleDownload = () => {
-    if (!receivedBlob || !incomingMeta) return;
-    const url = URL.createObjectURL(receivedBlob);
+  const handleDownloadSingle = (item: ReceivedItem) => {
+    const url = URL.createObjectURL(item.blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = incomingMeta.name;
+    a.download = item.meta.name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
+  };
+
+  const handleDownloadAll = () => {
+    receivedItems.forEach((item, index) => {
+      setTimeout(() => {
+        handleDownloadSingle(item);
+      }, index * 250);
+    });
   };
 
   const handleCancel = () => {
@@ -758,11 +860,12 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
 
   const handleRetry = () => {
     connRef.current?.close();
-    setIncomingMeta(null);
+    setIncomingMetas([]);
+    setReceivedItems([]);
     setProgress(0);
     setErrorMsg(null);
-    chunksRef.current = [];
-    receivedBytesRef.current = 0;
+    currentChunksRef.current = [];
+    totalBytesReceivedRef.current = 0;
     setState("scanner");
   };
 
@@ -771,7 +874,7 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
       <StatusCard
         icon={<X className="h-7 w-7" />}
         title="Transfer cancelled"
-        desc="The transfer was cancelled. No file was received."
+        desc="The transfer was cancelled. No files were received."
         action={<ResetButton label="Start over" onClick={onReset} />}
       />
     );
@@ -805,11 +908,7 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
     );
   }
 
-  if (state === "done" && incomingMeta) {
-    const Icon = mimeIcon(incomingMeta.type);
-    const isImage = incomingMeta.type.startsWith("image/");
-    const isVideo = incomingMeta.type.startsWith("video/");
-
+  if (state === "done") {
     return (
       <div className="space-y-4">
         <div className="rounded-2xl border-2 border-foreground bg-card p-6 shadow-[4px_4px_0_0_var(--color-foreground)] space-y-4">
@@ -818,42 +917,53 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
               <CheckCircle2 className="h-7 w-7 text-green-600" />
             </span>
             <p className="text-base font-bold">Transfer complete ✓</p>
+            <p className="text-xs text-muted-foreground">
+              Received {receivedItems.length} file(s) ({formatBytes(totalBatchSize)})
+            </p>
           </div>
-          {receivedBlob && isImage && (
-            <img
-              src={URL.createObjectURL(receivedBlob)}
-              alt={incomingMeta.name}
-              className="rounded-xl border-2 border-foreground w-full max-h-64 object-contain bg-secondary/20"
-            />
-          )}
-          {receivedBlob && isVideo && (
-            <video
-              src={URL.createObjectURL(receivedBlob)}
-              controls
-              playsInline
-              className="rounded-xl border-2 border-foreground w-full max-h-64 object-contain bg-black"
-            />
-          )}
-          <div className="rounded-xl border-2 border-foreground bg-background px-3 py-2.5 flex items-center gap-3">
-            <Icon className="h-5 w-5 shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold truncate">{incomingMeta.name}</p>
-              <p className="text-xs text-muted-foreground">{formatBytes(incomingMeta.size)}</p>
-            </div>
+
+          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+            {receivedItems.map((item, index) => {
+              const Icon = mimeIcon(item.meta.type);
+              return (
+                <div
+                  key={`${item.meta.name}-${index}`}
+                  className="rounded-xl border-2 border-foreground bg-background p-2.5 flex items-center justify-between gap-2 shadow-[2px_2px_0_0_var(--color-foreground)]"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-foreground/20 bg-secondary/40 shrink-0">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold truncate">{item.meta.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{formatBytes(item.meta.size)}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadSingle(item)}
+                    className="p-1.5 rounded-lg border border-foreground bg-primary text-primary-foreground shrink-0 hover:bg-primary/90"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
+
           <button
             type="button"
-            onClick={handleDownload}
+            onClick={handleDownloadAll}
             className="w-full inline-flex items-center justify-center gap-2 rounded-xl border-2 border-foreground bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] hover:-translate-y-0.5 hover:shadow-[4px_4px_0_0_var(--color-foreground)] transition-transform"
           >
-            <Download className="h-4 w-4" /> Save to device
+            <Download className="h-4 w-4" /> Save all to device
           </button>
           <button
             type="button"
             onClick={onReset}
             className="w-full text-xs font-bold text-muted-foreground py-1"
           >
-            Receive another
+            Receive more files
           </button>
         </div>
       </div>
@@ -868,7 +978,7 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
             <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-foreground bg-primary/15 text-[10px]">
               ↓
             </span>
-            Receive a file
+            Receive files
           </p>
           <button
             type="button"
@@ -923,19 +1033,34 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
 
         {state === "receiving" && (
           <div className="space-y-4 py-2">
-            {incomingMeta && <FileMetaCard meta={incomingMeta} />}
+            <div className="rounded-xl border-2 border-foreground bg-secondary/30 p-3 space-y-1">
+              <p className="text-xs font-bold truncate">
+                Receiving file {currentFileIndex + 1} of {incomingMetas.length}: {incomingMetas[currentFileIndex]?.name}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Total size: {formatBytes(totalBatchSize)}
+              </p>
+            </div>
+
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-bold">
-                <span>Receiving…</span>
+                <span>Synchronized Progress</span>
                 <span>{progress}%</span>
               </div>
               <div className="h-3 rounded-full border-2 border-foreground bg-background overflow-hidden">
                 <div
-                  className="h-full bg-primary transition-all"
+                  className="h-full bg-primary transition-all duration-150"
                   style={{ width: `${progress}%` }}
                 />
               </div>
             </div>
+
+            <div className="rounded-xl border border-foreground/20 bg-background/60 p-2.5 text-center">
+              <p className="text-[11px] font-bold text-foreground">
+                Do not close or leave this screen on either phone until transfer completes.
+              </p>
+            </div>
+
             <button
               type="button"
               onClick={handleCancel}
@@ -995,21 +1120,6 @@ function FileCard({ file, onRemove }: { file: File; onRemove?: () => void }) {
   );
 }
 
-function FileMetaCard({ meta }: { meta: FileMeta }) {
-  const Icon = mimeIcon(meta.type);
-  return (
-    <div className="flex items-center gap-3 rounded-xl border-2 border-foreground bg-background px-3 py-2.5 shadow-[2px_2px_0_0_var(--color-foreground)]">
-      <span className="flex h-10 w-10 items-center justify-center rounded-lg border-2 border-foreground/20 bg-secondary/40 shrink-0">
-        <Icon className="h-5 w-5" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold truncate">{meta.name}</p>
-        <p className="text-xs text-muted-foreground">{formatBytes(meta.size)}</p>
-      </div>
-    </div>
-  );
-}
-
 function StatusCard({
   icon,
   title,
@@ -1055,7 +1165,7 @@ function PrivacyBadge() {
         <p className="text-xs font-bold">Private transfer</p>
         <p className="text-[11px] font-medium text-muted-foreground leading-relaxed">
           No account. No cloud storage. Files travel directly between devices via WebRTC.
-          A temporary session ID is used for connection setup only — your file is never stored.
+          A temporary session ID is used for connection setup only — your files are never stored.
         </p>
       </div>
     </div>
