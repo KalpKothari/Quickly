@@ -2,10 +2,9 @@
  * PhoneTransfer.tsx — Quickly Phone-to-Phone Transfer
  *
  * Architecture:
- * - PeerJS (backed by public WebRTC cloud broker) for cross-device signaling
- * - Direct peer-to-peer WebRTC DataConnection for encrypted file delivery
- * - 16 KB binary chunk streaming with automatic reassembly
- * - Works across different phones, Wi-Fi networks, and mobile data
+ * - Direct WebRTC P2P DataChannel via PeerJS
+ * - Robust 2-way handshake (Receiver connects -> sends ACK -> Sender streams)
+ * - ArrayBuffer chunking with Uint8Array transfer for cross-mobile compatibility (iOS Safari & Android Chrome)
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -29,7 +28,7 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const CHUNK_SIZE = 16 * 1024; // 16 KB per WebRTC packet
+const CHUNK_SIZE = 16 * 1024; // 16 KB binary chunks
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB max guard
 const ALLOWED_TYPES = [
   "image/jpeg",
@@ -48,6 +47,17 @@ const ALLOWED_TYPES = [
   "text/csv",
 ];
 
+const PEER_CONFIG = {
+  config: {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+      { urls: "stun:stun2.l.google.com:19302" },
+      { urls: "stun:stun.cloudflare.com:3478" },
+    ],
+  },
+};
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Role = "idle" | "send" | "receive";
@@ -62,7 +72,6 @@ type SendState =
 type ReceiveState =
   | "scanner"
   | "connecting"
-  | "incoming"
   | "receiving"
   | "done"
   | "error"
@@ -199,100 +208,101 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const peerRef = useRef<Peer | null>(null);
   const connRef = useRef<DataConnection | null>(null);
+  const fileRef = useRef<File | null>(null);
 
-  // Initialize Sender Peer on mount
+  fileRef.current = file;
+
+  // 1. Initialize Sender Peer
   useEffect(() => {
-    const peer = new Peer({
-      config: {
-        iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" },
-        ],
-      },
-    });
+    const peer = new Peer(PEER_CONFIG);
+    peerRef.current = peer;
 
     peer.on("open", (id) => {
       setPeerId(id);
     });
 
-    peer.on("error", () => {
-      setErrorMsg("Failed to connect to the transfer network. Check your internet connection.");
-      setState("error");
+    peer.on("connection", (conn) => {
+      connRef.current = conn;
+      setState("connecting");
+
+      conn.on("open", () => {
+        // Send meta right away once channel opens
+        if (fileRef.current) {
+          conn.send({
+            type: "META",
+            name: fileRef.current.name,
+            size: fileRef.current.size,
+            mime: fileRef.current.type,
+          });
+        }
+      });
+
+      conn.on("data", async (data: any) => {
+        // Receiver confirms readiness -> begin streaming
+        if (data?.type === "READY_TO_RECEIVE" && fileRef.current) {
+          setState("sending");
+          const selectedFile = fileRef.current;
+          const arrayBuf = await selectedFile.arrayBuffer();
+          let offset = 0;
+
+          const streamChunk = () => {
+            while (offset < arrayBuf.byteLength) {
+              const slice = arrayBuf.slice(offset, offset + CHUNK_SIZE);
+              conn.send(slice);
+              offset += slice.byteLength;
+              setProgress(Math.round((offset / arrayBuf.byteLength) * 100));
+
+              // Yield event loop to avoid channel buffer overflows
+              if (offset % (CHUNK_SIZE * 8) === 0) {
+                setTimeout(streamChunk, 10);
+                return;
+              }
+            }
+
+            // Transfer completed
+            conn.send({ type: "DONE" });
+            setState("done");
+          };
+
+          streamChunk();
+        }
+      });
+
+      conn.on("close", () => {
+        setState((curr) => {
+          if (curr !== "done") {
+            setErrorMsg("Connection lost with the receiver.");
+            return "error";
+          }
+          return curr;
+        });
+      });
+
+      conn.on("error", () => {
+        setErrorMsg("Direct peer connection error.");
+        setState("error");
+      });
     });
 
-    peerRef.current = peer;
+    peer.on("error", () => {
+      setErrorMsg("Failed to connect to signaling network. Check internet connection.");
+      setState("error");
+    });
 
     return () => {
       peer.destroy();
     };
   }, []);
 
-  // Listen for receiver connection once QR is displayed
-  useEffect(() => {
-    if (!peerRef.current || !file) return;
-
-    const peer = peerRef.current;
-
-    peer.on("connection", (conn) => {
-      connRef.current = conn;
-      setState("connecting");
-
-      conn.on("open", async () => {
-        setState("sending");
-
-        // 1. Send file metadata
-        const meta: FileMeta = { name: file.name, type: file.type, size: file.size };
-        conn.send({ event: "meta", payload: meta });
-
-        // 2. Stream binary array buffer
-        const buf = await file.arrayBuffer();
-        let offset = 0;
-
-        const sendNextChunk = () => {
-          while (offset < buf.byteLength) {
-            const chunk = buf.slice(offset, offset + CHUNK_SIZE);
-            conn.send(chunk);
-            offset += chunk.byteLength;
-            setProgress(Math.round((offset / buf.byteLength) * 100));
-
-            // Yield control back to browser runtime every few chunks
-            if (offset % (CHUNK_SIZE * 8) === 0) {
-              setTimeout(sendNextChunk, 10);
-              return;
-            }
-          }
-
-          // 3. Send completion packet
-          conn.send({ event: "done" });
-          setState("done");
-        };
-
-        sendNextChunk();
-      });
-
-      conn.on("close", () => {
-        if (state !== "done") {
-          setErrorMsg("Connection lost with receiving phone.");
-          setState("error");
-        }
-      });
-
-      conn.on("error", () => {
-        setErrorMsg("Direct connection encountered an error.");
-        setState("error");
-      });
-    });
-  }, [file, state]);
-
-  // Draw QR code whenever peerId is ready and user is waiting
+  // 2. Draw QR code
   useEffect(() => {
     if (state !== "qr-waiting" || !qrCanvasRef.current || !peerId) return;
 
-    const qrPayload = `quickly-transfer:${peerId}`;
-    QRCode.toCanvas(qrCanvasRef.current, qrPayload, {
+    const payload = `quickly-transfer:${peerId}`;
+    QRCode.toCanvas(qrCanvasRef.current, payload, {
       width: 260,
       color: { dark: "#111827", light: "#ffffff" },
-      errorCorrectionLevel: "H",
+      errorCorrectionLevel: "M",
       margin: 2,
     }).catch(() => {});
   }, [state, peerId]);
@@ -517,7 +527,7 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const peerRef = useRef<Peer | null>(null);
   const connRef = useRef<DataConnection | null>(null);
-  const chunksRef = useRef<ArrayBuffer[]>([]);
+  const chunksRef = useRef<BlobPart[]>([]);
   const metaRef = useRef<FileMeta | null>(null);
   const receivedBytesRef = useRef(0);
   const animFrameRef = useRef<number | null>(null);
@@ -525,15 +535,7 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
 
   // Initialize Receiver Peer
   useEffect(() => {
-    const peer = new Peer({
-      config: {
-        iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" },
-        ],
-      },
-    });
-
+    const peer = new Peer(PEER_CONFIG);
     peerRef.current = peer;
 
     return () => {
@@ -555,69 +557,88 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
     }
   }, []);
 
-  const connectToSender = useCallback((senderPeerId: string) => {
-    stopCamera();
-    setState("connecting");
+  const connectToSender = useCallback(
+    (senderPeerId: string) => {
+      stopCamera();
+      setState("connecting");
 
-    if (!peerRef.current) {
-      setErrorMsg("Signaling client uninitialized. Please refresh and try again.");
-      setState("error");
-      return;
-    }
-
-    const conn = peerRef.current.connect(senderPeerId, { reliable: true });
-    connRef.current = conn;
-
-    conn.on("open", () => {
-      setState("receiving");
-    });
-
-    conn.on("data", (data: any) => {
-      // 1. Metadata packet
-      if (data?.event === "meta") {
-        metaRef.current = data.payload;
-        setIncomingMeta(data.payload);
-        chunksRef.current = [];
-        receivedBytesRef.current = 0;
+      if (!peerRef.current) {
+        setErrorMsg("Signaling client error. Please refresh and try again.");
+        setState("error");
         return;
       }
 
-      // 2. Finished packet
-      if (data?.event === "done") {
-        const blob = new Blob(chunksRef.current, {
-          type: metaRef.current?.type || "application/octet-stream",
-        });
-        setReceivedBlob(blob);
-        setState("done");
-        return;
-      }
+      const conn = peerRef.current.connect(senderPeerId, { reliable: true });
+      connRef.current = conn;
 
-      // 3. Binary chunk packet
-      if (data instanceof ArrayBuffer || data?.buffer instanceof ArrayBuffer) {
-        const chunk = data instanceof ArrayBuffer ? data : data.buffer;
-        chunksRef.current.push(chunk);
-        receivedBytesRef.current += chunk.byteLength;
+      conn.on("open", () => {
+        setState("receiving");
+      });
+
+      conn.on("data", (data: any) => {
+        // 1. Meta packet received from sender -> acknowledge and ask to start data stream
+        if (data?.type === "META") {
+          metaRef.current = {
+            name: data.name,
+            size: data.size,
+            type: data.mime || "application/octet-stream",
+          };
+          setIncomingMeta(metaRef.current);
+          chunksRef.current = [];
+          receivedBytesRef.current = 0;
+          conn.send({ type: "READY_TO_RECEIVE" });
+          return;
+        }
+
+        // 2. Transfer completion packet
+        if (data?.type === "DONE") {
+          const combinedBlob = new Blob(chunksRef.current, {
+            type: metaRef.current?.type || "application/octet-stream",
+          });
+          setReceivedBlob(combinedBlob);
+          setState("done");
+          return;
+        }
+
+        // 3. Binary chunk packet (ArrayBuffer or Uint8Array)
+        let chunkBytes: Uint8Array;
+        if (data instanceof ArrayBuffer) {
+          chunkBytes = new Uint8Array(data);
+        } else if (data?.buffer instanceof ArrayBuffer) {
+          chunkBytes = new Uint8Array(data.buffer);
+        } else if (data instanceof Uint8Array) {
+          chunkBytes = data;
+        } else {
+          return;
+        }
+
+        chunksRef.current.push(chunkBytes as unknown as BlobPart);
+        receivedBytesRef.current += chunkBytes.byteLength;
 
         if (metaRef.current?.size) {
           setProgress(
             Math.min(100, Math.round((receivedBytesRef.current / metaRef.current.size) * 100))
           );
         }
-      }
-    });
+      });
 
-    conn.on("close", () => {
-      if (state !== "done") {
-        setErrorMsg("Connection with sender lost.");
+      conn.on("close", () => {
+        setState((curr) => {
+          if (curr !== "done") {
+            setErrorMsg("Connection with sender lost.");
+            return "error";
+          }
+          return curr;
+        });
+      });
+
+      conn.on("error", () => {
+        setErrorMsg("Failed to connect to sender phone.");
         setState("error");
-      }
-    });
-
-    conn.on("error", () => {
-      setErrorMsg("Failed to connect to sender phone.");
-      setState("error");
-    });
-  }, [state, stopCamera]);
+      });
+    },
+    [stopCamera]
+  );
 
   // Start Camera & Frame Detection
   useEffect(() => {
@@ -764,7 +785,7 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
             />
           )}
           <div className="rounded-xl border-2 border-foreground bg-background px-3 py-2.5 flex items-center gap-3">
-            <Icon className="h-5 w-5 flex-shrink-0" />
+            <Icon className="h-5 w-5 shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold truncate">{incomingMeta.name}</p>
               <p className="text-xs text-muted-foreground">{formatBytes(incomingMeta.size)}</p>
@@ -845,7 +866,9 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
           <div className="flex flex-col items-center gap-3 py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm font-bold">Connecting…</p>
-            <p className="text-xs text-muted-foreground">Establishing direct connection with sender</p>
+            <p className="text-xs text-muted-foreground">
+              Establishing direct connection with sender
+            </p>
           </div>
         )}
 
@@ -898,10 +921,10 @@ function FileCard({ file, onRemove }: { file: File; onRemove?: () => void }) {
         <img
           src={thumb}
           alt=""
-          className="h-10 w-10 rounded-lg object-cover flex-shrink-0 border border-foreground/20"
+          className="h-10 w-10 rounded-lg object-cover shrink-0 border border-foreground/20"
         />
       ) : (
-        <span className="flex h-10 w-10 items-center justify-center rounded-lg border-2 border-foreground/20 bg-secondary/40 flex-shrink-0">
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg border-2 border-foreground/20 bg-secondary/40 shrink-0">
           <Icon className="h-5 w-5" />
         </span>
       )}
@@ -913,7 +936,7 @@ function FileCard({ file, onRemove }: { file: File; onRemove?: () => void }) {
         <button
           type="button"
           onClick={onRemove}
-          className="flex h-7 w-7 items-center justify-center rounded-lg border-2 border-foreground/20 bg-background hover:bg-secondary/40 flex-shrink-0"
+          className="flex h-7 w-7 items-center justify-center rounded-lg border-2 border-foreground/20 bg-background hover:bg-secondary/40 shrink-0"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -926,7 +949,7 @@ function FileMetaCard({ meta }: { meta: FileMeta }) {
   const Icon = mimeIcon(meta.type);
   return (
     <div className="flex items-center gap-3 rounded-xl border-2 border-foreground bg-background px-3 py-2.5 shadow-[2px_2px_0_0_var(--color-foreground)]">
-      <span className="flex h-10 w-10 items-center justify-center rounded-lg border-2 border-foreground/20 bg-secondary/40 flex-shrink-0">
+      <span className="flex h-10 w-10 items-center justify-center rounded-lg border-2 border-foreground/20 bg-secondary/40 shrink-0">
         <Icon className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1">
@@ -977,7 +1000,7 @@ function ResetButton({ label, onClick }: { label: string; onClick: () => void })
 function PrivacyBadge() {
   return (
     <div className="flex items-start gap-2.5 rounded-xl border border-foreground/20 bg-secondary/30 px-3 py-2.5">
-      <Shield className="h-4 w-4 flex-shrink-0 mt-0.5 text-muted-foreground" />
+      <Shield className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
       <div>
         <p className="text-xs font-bold">Private transfer</p>
         <p className="text-[11px] font-medium text-muted-foreground leading-relaxed">
