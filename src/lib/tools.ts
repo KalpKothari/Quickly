@@ -11,6 +11,7 @@ import {
   Ruler, Coins, Cake, Percent, Activity, Calculator, Globe, Link2, CalendarClock, Timer, TimerReset,
   Award, CalendarCheck, PiggyBank,
   Wallet, Banknote, Shuffle,
+  Smartphone,
 } from "lucide-react";
 
 export type CategoryId =
@@ -127,7 +128,9 @@ export const TOOLS: Tool[] = [
   { slug: "countdown-timer", name: "Countdown Timer", description: "Count down to any moment.", category: "utility", icon: Timer, status: "live" },
   { slug: "stopwatch", name: "Stopwatch", description: "Precise stopwatch with laps.", category: "utility", icon: TimerReset, status: "live" },
   { slug: "spin-the-wheel", name: "Spin The Wheel", description: "Randomly select an option from a list.", category: "utility", icon: Repeat, status: "live" },
-  { slug: "randomizer", name: "Randomizer", description: "Generate random numbers, strings, and more.", category: "utility", icon: Shuffle, status: "live" },
+  { slug: "randomizer", name: "Randomizer", description: "Create random orders, groups, and selections instantly.", category: "utility", icon: Shuffle, status: "live" },
+  { slug: "qr-scanner", name: "QR Code Scanner", description: "Scan QR codes using your device camera.", category: "utility", icon: QrCode, status: "live" },
+  { slug: "phone-transfer", name: "Phone Transfer", description: "Transfer data between your phones.", category: "utility", icon: Smartphone, status: "live" },
 ];
 
 export function getCategory(id: CategoryId): Category {
