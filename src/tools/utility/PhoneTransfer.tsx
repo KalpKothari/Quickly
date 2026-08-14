@@ -2,16 +2,16 @@
  * PhoneTransfer.tsx — Quickly Phone-to-Phone Transfer
  *
  * Architecture:
- * - WebRTC RTCDataChannel for actual file bytes (peer-to-peer, never hits app storage)
- * - A tiny signaling relay is used ONLY to exchange SDP offers/answers and ICE candidates
- * - The file itself is chunked (16 KB chunks) with backpressure via bufferedAmountLowThreshold
- * - Session IDs are ephemeral UUIDs; cleaned up after transfer or cancellation
- *
- * Supported: modern iOS Safari ≥ 15.4, Android Chrome ≥ 90
+ * - PeerJS (backed by public WebRTC cloud broker) for cross-device signaling
+ * - Direct peer-to-peer WebRTC DataConnection for encrypted file delivery
+ * - 16 KB binary chunk streaming with automatic reassembly
+ * - Works across different phones, Wi-Fi networks, and mobile data
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import QRCode from "qrcode";
+import jsQR from "jsqr";
+import Peer, { type DataConnection } from "peerjs";
 import {
   Upload,
   ScanLine,
@@ -29,8 +29,8 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const CHUNK_SIZE = 16 * 1024; // 16 KB per RTCDataChannel message
-const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB guard
+const CHUNK_SIZE = 16 * 1024; // 16 KB per WebRTC packet
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB max guard
 const ALLOWED_TYPES = [
   "image/jpeg",
   "image/png",
@@ -47,19 +47,6 @@ const ALLOWED_TYPES = [
   "text/plain",
   "text/csv",
 ];
-
-// Free public STUN servers for ICE gathering
-const ICE_SERVERS = [
-  { urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun1.l.google.com:19302" },
-];
-
-// Signaling via BroadcastChannel (same-origin tabs) for demo;
-// in production swap with a WebSocket relay.
-// We simulate peer signaling with a shared in-memory bus so this works
-// in a single domain without a backend. For cross-device you'd replace
-// the signal* helpers with a lightweight WebSocket or Firebase Realtime DB call.
-// The file bytes never leave the RTCDataChannel.
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -102,51 +89,9 @@ function mimeIcon(type: string) {
 function isDesktop() {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent;
-  // Treat as mobile if any of these are present
   const mobileUA = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-  // Also check for touch + small screen as secondary heuristic
   const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
   return !mobileUA && !hasTouch;
-}
-
-// ─── Signaling bus (in-memory, same browser tab demo) ─────────────────────────
-// Replace signal* with WebSocket calls for cross-device production use.
-// The session ID in the QR encodes the rendezvous point.
-
-type SignalMsg =
-  | { type: "offer"; sdp: string }
-  | { type: "answer"; sdp: string }
-  | { type: "ice"; candidate: RTCIceCandidateInit };
-
-const _channels: Record<string, BroadcastChannel> = {};
-
-function getChannel(sessionId: string) {
-  if (!_channels[sessionId]) {
-    _channels[sessionId] = new BroadcastChannel(`quickly-transfer-${sessionId}`);
-  }
-  return _channels[sessionId];
-}
-
-function signalSend(sessionId: string, msg: SignalMsg) {
-  getChannel(sessionId).postMessage(msg);
-}
-
-function signalListen(
-  sessionId: string,
-  handler: (msg: SignalMsg) => void
-): () => void {
-  const ch = getChannel(sessionId);
-  const listener = (e: MessageEvent) => handler(e.data);
-  ch.addEventListener("message", listener);
-  return () => ch.removeEventListener("message", listener);
-}
-
-function cleanupSignal(sessionId: string) {
-  const ch = _channels[sessionId];
-  if (ch) {
-    ch.close();
-    delete _channels[sessionId];
-  }
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -247,124 +192,110 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
   const [state, setState] = useState<SendState>("file-select");
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [sessionId] = useState(() => crypto.randomUUID());
+  const [peerId, setPeerId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
-  const pcRef = useRef<RTCPeerConnection | null>(null);
-  const dcRef = useRef<RTCDataChannel | null>(null);
+  const peerRef = useRef<Peer | null>(null);
+  const connRef = useRef<DataConnection | null>(null);
 
-  // Build QR payload — just the session ID
-  const qrPayload = `quickly-transfer:${sessionId}`;
-
-  // Draw QR once we move to qr-waiting
+  // Initialize Sender Peer on mount
   useEffect(() => {
-    if (state !== "qr-waiting" || !qrCanvasRef.current) return;
+    const peer = new Peer({
+      config: {
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+        ],
+      },
+    });
+
+    peer.on("open", (id) => {
+      setPeerId(id);
+    });
+
+    peer.on("error", () => {
+      setErrorMsg("Failed to connect to the transfer network. Check your internet connection.");
+      setState("error");
+    });
+
+    peerRef.current = peer;
+
+    return () => {
+      peer.destroy();
+    };
+  }, []);
+
+  // Listen for receiver connection once QR is displayed
+  useEffect(() => {
+    if (!peerRef.current || !file) return;
+
+    const peer = peerRef.current;
+
+    peer.on("connection", (conn) => {
+      connRef.current = conn;
+      setState("connecting");
+
+      conn.on("open", async () => {
+        setState("sending");
+
+        // 1. Send file metadata
+        const meta: FileMeta = { name: file.name, type: file.type, size: file.size };
+        conn.send({ event: "meta", payload: meta });
+
+        // 2. Stream binary array buffer
+        const buf = await file.arrayBuffer();
+        let offset = 0;
+
+        const sendNextChunk = () => {
+          while (offset < buf.byteLength) {
+            const chunk = buf.slice(offset, offset + CHUNK_SIZE);
+            conn.send(chunk);
+            offset += chunk.byteLength;
+            setProgress(Math.round((offset / buf.byteLength) * 100));
+
+            // Yield control back to browser runtime every few chunks
+            if (offset % (CHUNK_SIZE * 8) === 0) {
+              setTimeout(sendNextChunk, 10);
+              return;
+            }
+          }
+
+          // 3. Send completion packet
+          conn.send({ event: "done" });
+          setState("done");
+        };
+
+        sendNextChunk();
+      });
+
+      conn.on("close", () => {
+        if (state !== "done") {
+          setErrorMsg("Connection lost with receiving phone.");
+          setState("error");
+        }
+      });
+
+      conn.on("error", () => {
+        setErrorMsg("Direct connection encountered an error.");
+        setState("error");
+      });
+    });
+  }, [file, state]);
+
+  // Draw QR code whenever peerId is ready and user is waiting
+  useEffect(() => {
+    if (state !== "qr-waiting" || !qrCanvasRef.current || !peerId) return;
+
+    const qrPayload = `quickly-transfer:${peerId}`;
     QRCode.toCanvas(qrCanvasRef.current, qrPayload, {
-      width: 280,
+      width: 260,
       color: { dark: "#111827", light: "#ffffff" },
       errorCorrectionLevel: "H",
       margin: 2,
     }).catch(() => {});
-  }, [state, qrPayload]);
-
-  // WebRTC sender logic
-  const startSenderWebRTC = useCallback(async () => {
-    if (!file) return;
-    setState("connecting");
-
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-    pcRef.current = pc;
-
-    const dc = pc.createDataChannel("file", { ordered: true });
-    dcRef.current = dc;
-
-    // Backpressure: only write when buffer is low
-    dc.bufferedAmountLowThreshold = CHUNK_SIZE * 4;
-
-    dc.onopen = async () => {
-      setState("sending");
-      // Send metadata first as JSON
-      const meta: FileMeta = { name: file.name, type: file.type, size: file.size };
-      dc.send(JSON.stringify({ event: "meta", payload: meta }));
-
-      // Then stream chunks
-      const buf = await file.arrayBuffer();
-      let offset = 0;
-
-      const sendChunk = () => {
-        while (offset < buf.byteLength) {
-          if (dc.bufferedAmount > CHUNK_SIZE * 8) {
-            // Wait for drain
-            dc.onbufferedamountlow = sendChunk;
-            return;
-          }
-          const chunk = buf.slice(offset, offset + CHUNK_SIZE);
-          dc.send(chunk);
-          offset += chunk.byteLength;
-          setProgress(Math.round((offset / buf.byteLength) * 100));
-        }
-        dc.send(JSON.stringify({ event: "done" }));
-        setState("done");
-      };
-
-      sendChunk();
-    };
-
-    dc.onerror = () => {
-      setErrorMsg("Connection lost. The two phones were disconnected.");
-      setState("error");
-    };
-
-    pc.onicecandidate = ({ candidate }) => {
-      if (candidate) signalSend(sessionId, { type: "ice", candidate: candidate.toJSON() });
-    };
-
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    signalSend(sessionId, { type: "offer", sdp: offer.sdp! });
-
-    // Listen for answer + ICE from receiver
-    const unsub = signalListen(sessionId, async (msg) => {
-      if (msg.type === "answer") {
-        await pc.setRemoteDescription({ type: "answer", sdp: msg.sdp });
-      } else if (msg.type === "ice") {
-        await pc.addIceCandidate(msg.candidate).catch(() => {});
-      }
-    });
-
-    pc.onconnectionstatechange = () => {
-      if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
-        setErrorMsg("Connection lost. The two phones were disconnected.");
-        setState("error");
-        unsub();
-      }
-    };
-
-    return unsub;
-  }, [file, sessionId]);
-
-  // When file is selected and user confirms, show QR
-  const handleFileConfirm = () => {
-    setState("qr-waiting");
-  };
-
-  // When user taps "Start Transfer" (receiver scanned QR, we detect via signal)
-  useEffect(() => {
-    if (state !== "qr-waiting") return;
-
-    // In a cross-device scenario, the receiver posts an "offer-request" signal.
-    // Here we listen for receiver readiness as a "ready" message variant.
-    const unsub = signalListen(sessionId, (msg) => {
-      if ((msg as any).type === "ready") {
-        startSenderWebRTC().catch(() => {
-          setErrorMsg("Could not establish connection. Please try again.");
-          setState("error");
-        });
-      }
-    });
-    return unsub;
-  }, [state, sessionId, startSenderWebRTC]);
+  }, [state, peerId]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFileError(null);
@@ -382,21 +313,17 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
   };
 
   const handleCancel = () => {
-    pcRef.current?.close();
-    dcRef.current?.close();
-    cleanupSignal(sessionId);
+    connRef.current?.close();
     setState("cancelled");
   };
 
   const handleRetry = () => {
-    pcRef.current?.close();
+    connRef.current?.close();
     setFile(null);
     setProgress(0);
     setErrorMsg(null);
     setState("file-select");
   };
-
-  // ── Render ──
 
   if (state === "cancelled") {
     return (
@@ -450,7 +377,6 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
 
   return (
     <div className="space-y-4">
-      {/* Header step */}
       <div className="rounded-2xl border-2 border-foreground bg-card p-4 shadow-[4px_4px_0_0_var(--color-foreground)]">
         <div className="flex items-center justify-between mb-3">
           <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
@@ -468,7 +394,6 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
           </button>
         </div>
 
-        {/* File select state */}
         {state === "file-select" && (
           <div className="space-y-3">
             {!file ? (
@@ -502,7 +427,7 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
             {file && (
               <button
                 type="button"
-                onClick={handleFileConfirm}
+                onClick={() => setState("qr-waiting")}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-xl border-2 border-foreground bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)] hover:-translate-y-0.5 hover:shadow-[4px_4px_0_0_var(--color-foreground)] transition-transform"
               >
                 Generate QR code →
@@ -511,7 +436,6 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
           </div>
         )}
 
-        {/* QR waiting state */}
         {state === "qr-waiting" && file && (
           <div className="space-y-4">
             <FileCard file={file} />
@@ -519,8 +443,15 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
               <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                 Scan this QR from the other phone
               </p>
-              <div className="rounded-xl border-2 border-foreground p-3 bg-white shadow-[3px_3px_0_0_var(--color-foreground)]">
-                <canvas ref={qrCanvasRef} />
+              <div className="rounded-xl border-2 border-foreground p-3 bg-white shadow-[3px_3px_0_0_var(--color-foreground)] flex items-center justify-center min-h-[260px] min-w-[260px]">
+                {peerId ? (
+                  <canvas ref={qrCanvasRef} />
+                ) : (
+                  <div className="flex flex-col items-center gap-2 text-xs font-bold text-muted-foreground">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    Generating secure QR…
+                  </div>
+                )}
               </div>
               <div className="inline-flex items-center gap-2 rounded-full border border-foreground/20 bg-secondary/40 px-3 py-1.5">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -537,16 +468,14 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
           </div>
         )}
 
-        {/* Connecting */}
         {state === "connecting" && (
           <div className="flex flex-col items-center gap-3 py-8">
-            <Loader2 className="h-8 w-8 animate-spin" />
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm font-bold">Connecting…</p>
             <p className="text-xs text-muted-foreground">Establishing direct connection</p>
           </div>
         )}
 
-        {/* Sending */}
         {state === "sending" && (
           <div className="space-y-4 py-2">
             <FileCard file={file!} />
@@ -580,34 +509,165 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
 
 function ReceiverFlow({ onReset }: { onReset: () => void }) {
   const [state, setState] = useState<ReceiveState>("scanner");
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const [incomingMeta, setIncomingMeta] = useState<FileMeta | null>(null);
   const [progress, setProgress] = useState(0);
   const [receivedBlob, setReceivedBlob] = useState<Blob | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const videoRef = useRef<HTMLVideoElement>(null);
-  const scannerRef = useRef<any>(null); // jsQR or equivalent
-  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const peerRef = useRef<Peer | null>(null);
+  const connRef = useRef<DataConnection | null>(null);
   const chunksRef = useRef<ArrayBuffer[]>([]);
   const metaRef = useRef<FileMeta | null>(null);
-  const receivedRef = useRef(0);
+  const receivedBytesRef = useRef(0);
   const animFrameRef = useRef<number | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
-  // Start camera
+  // Initialize Receiver Peer
+  useEffect(() => {
+    const peer = new Peer({
+      config: {
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+        ],
+      },
+    });
+
+    peerRef.current = peer;
+
+    return () => {
+      peer.destroy();
+    };
+  }, []);
+
+  const stopCamera = useCallback(() => {
+    if (animFrameRef.current !== null) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }, []);
+
+  const connectToSender = useCallback((senderPeerId: string) => {
+    stopCamera();
+    setState("connecting");
+
+    if (!peerRef.current) {
+      setErrorMsg("Signaling client uninitialized. Please refresh and try again.");
+      setState("error");
+      return;
+    }
+
+    const conn = peerRef.current.connect(senderPeerId, { reliable: true });
+    connRef.current = conn;
+
+    conn.on("open", () => {
+      setState("receiving");
+    });
+
+    conn.on("data", (data: any) => {
+      // 1. Metadata packet
+      if (data?.event === "meta") {
+        metaRef.current = data.payload;
+        setIncomingMeta(data.payload);
+        chunksRef.current = [];
+        receivedBytesRef.current = 0;
+        return;
+      }
+
+      // 2. Finished packet
+      if (data?.event === "done") {
+        const blob = new Blob(chunksRef.current, {
+          type: metaRef.current?.type || "application/octet-stream",
+        });
+        setReceivedBlob(blob);
+        setState("done");
+        return;
+      }
+
+      // 3. Binary chunk packet
+      if (data instanceof ArrayBuffer || data?.buffer instanceof ArrayBuffer) {
+        const chunk = data instanceof ArrayBuffer ? data : data.buffer;
+        chunksRef.current.push(chunk);
+        receivedBytesRef.current += chunk.byteLength;
+
+        if (metaRef.current?.size) {
+          setProgress(
+            Math.min(100, Math.round((receivedBytesRef.current / metaRef.current.size) * 100))
+          );
+        }
+      }
+    });
+
+    conn.on("close", () => {
+      if (state !== "done") {
+        setErrorMsg("Connection with sender lost.");
+        setState("error");
+      }
+    });
+
+    conn.on("error", () => {
+      setErrorMsg("Failed to connect to sender phone.");
+      setState("error");
+    });
+  }, [state, stopCamera]);
+
+  // Start Camera & Frame Detection
   useEffect(() => {
     if (state !== "scanner") return;
-    let stream: MediaStream | null = null;
+
+    let isScanning = true;
 
     (async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false,
         });
+
+        if (!isScanning) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.play();
+          await videoRef.current.play();
         }
-        startScan();
+
+        const scanFrame = () => {
+          const video = videoRef.current;
+          if (video && video.readyState === video.HAVE_ENOUGH_DATA) {
+            const canvas = document.createElement("canvas");
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext("2d", { willReadFrequently: true });
+            if (ctx) {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "dontInvert",
+              });
+
+              if (code?.data?.startsWith("quickly-transfer:")) {
+                const targetPeerId = code.data.replace("quickly-transfer:", "").trim();
+                connectToSender(targetPeerId);
+                return;
+              }
+            }
+          }
+          animFrameRef.current = requestAnimationFrame(scanFrame);
+        };
+
+        animFrameRef.current = requestAnimationFrame(scanFrame);
       } catch {
         setErrorMsg("Camera access was denied. Please allow camera permission and try again.");
         setState("error");
@@ -615,109 +675,10 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
     })();
 
     return () => {
-      stream?.getTracks().forEach((t) => t.stop());
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      isScanning = false;
+      stopCamera();
     };
-  }, [state]);
-
-  const startScan = () => {
-    // Dynamically import jsQR for QR detection
-    const tick = async () => {
-      const video = videoRef.current;
-      if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) {
-        animFrameRef.current = requestAnimationFrame(tick);
-        return;
-      }
-
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(video, 0, 0);
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-      try {
-        const jsQR = (await import("jsqr")).default;
-        const code = jsQR(imgData.data, imgData.width, imgData.height);
-        if (code?.data?.startsWith("quickly-transfer:")) {
-          const id = code.data.replace("quickly-transfer:", "");
-          if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-          onQrDetected(id);
-          return;
-        }
-      } catch {
-        // jsqr not loaded yet, continue scanning
-      }
-
-      animFrameRef.current = requestAnimationFrame(tick);
-    };
-    animFrameRef.current = requestAnimationFrame(tick);
-  };
-
-  const onQrDetected = async (id: string) => {
-    setSessionId(id);
-    setState("connecting");
-
-    // Signal sender we're ready
-    signalSend(id, { type: "ready" } as any);
-
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-    pcRef.current = pc;
-
-    pc.ondatachannel = ({ channel }) => {
-      channel.onmessage = ({ data }) => {
-        if (typeof data === "string") {
-          const msg = JSON.parse(data);
-          if (msg.event === "meta") {
-            metaRef.current = msg.payload;
-            setIncomingMeta(msg.payload);
-            chunksRef.current = [];
-            receivedRef.current = 0;
-            setState("incoming");
-          } else if (msg.event === "done") {
-            const blob = new Blob(chunksRef.current, { type: metaRef.current?.type });
-            setReceivedBlob(blob);
-            setState("done");
-          }
-        } else {
-          // Binary chunk
-          chunksRef.current.push(data);
-          receivedRef.current += (data as ArrayBuffer).byteLength;
-          if (metaRef.current) {
-            setProgress(Math.round((receivedRef.current / metaRef.current.size) * 100));
-            if (state !== "receiving") setState("receiving");
-          }
-        }
-      };
-      channel.onerror = () => {
-        setErrorMsg("Connection lost. The two phones were disconnected.");
-        setState("error");
-      };
-    };
-
-    pc.onicecandidate = ({ candidate }) => {
-      if (candidate) signalSend(id, { type: "ice", candidate: candidate.toJSON() });
-    };
-
-    const unsub = signalListen(id, async (msg) => {
-      if (msg.type === "offer") {
-        await pc.setRemoteDescription({ type: "offer", sdp: msg.sdp });
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        signalSend(id, { type: "answer", sdp: answer.sdp! });
-      } else if (msg.type === "ice") {
-        await pc.addIceCandidate(msg.candidate).catch(() => {});
-      }
-    });
-
-    pc.onconnectionstatechange = () => {
-      if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
-        setErrorMsg("Connection lost. The two phones were disconnected.");
-        setState("error");
-        unsub();
-      }
-    };
-  };
+  }, [state, connectToSender, stopCamera]);
 
   const handleDownload = () => {
     if (!receivedBlob || !incomingMeta) return;
@@ -727,23 +688,21 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
     a.download = incomingMeta.name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-    if (sessionId) cleanupSignal(sessionId);
   };
 
   const handleCancel = () => {
-    pcRef.current?.close();
-    if (sessionId) cleanupSignal(sessionId);
+    connRef.current?.close();
+    stopCamera();
     setState("cancelled");
   };
 
   const handleRetry = () => {
-    pcRef.current?.close();
-    if (sessionId) cleanupSignal(sessionId);
-    setSessionId(null);
+    connRef.current?.close();
     setIncomingMeta(null);
     setProgress(0);
     setErrorMsg(null);
     chunksRef.current = [];
+    receivedBytesRef.current = 0;
     setState("scanner");
   };
 
@@ -806,7 +765,7 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
           )}
           <div className="rounded-xl border-2 border-foreground bg-background px-3 py-2.5 flex items-center gap-3">
             <Icon className="h-5 w-5 flex-shrink-0" />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-sm font-bold truncate">{incomingMeta.name}</p>
               <p className="text-xs text-muted-foreground">{formatBytes(incomingMeta.size)}</p>
             </div>
@@ -818,7 +777,11 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
           >
             <Download className="h-4 w-4" /> Save to device
           </button>
-          <button type="button" onClick={onReset} className="w-full text-xs font-bold text-muted-foreground py-1">
+          <button
+            type="button"
+            onClick={onReset}
+            className="w-full text-xs font-bold text-muted-foreground py-1"
+          >
             Receive another
           </button>
         </div>
@@ -855,6 +818,7 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
                 ref={videoRef}
                 playsInline
                 muted
+                autoPlay
                 className="w-full aspect-square object-cover"
               />
               {/* Scanning frame overlay */}
@@ -879,43 +843,15 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
 
         {state === "connecting" && (
           <div className="flex flex-col items-center gap-3 py-8">
-            <Loader2 className="h-8 w-8 animate-spin" />
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm font-bold">Connecting…</p>
-            <p className="text-xs text-muted-foreground">Establishing direct connection</p>
+            <p className="text-xs text-muted-foreground">Establishing direct connection with sender</p>
           </div>
         )}
 
-        {state === "incoming" && incomingMeta && (
+        {state === "receiving" && (
           <div className="space-y-4 py-2">
-            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Incoming file
-            </p>
-            <FileMetaCard meta={incomingMeta} />
-            <p className="text-xs text-center font-medium text-muted-foreground">
-              Ready to receive
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setState("receiving")}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border-2 border-foreground bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_0_var(--color-foreground)]"
-              >
-                Accept
-              </button>
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border-2 border-foreground bg-background px-4 py-3 text-sm font-bold shadow-[2px_2px_0_0_var(--color-foreground)]"
-              >
-                Decline
-              </button>
-            </div>
-          </div>
-        )}
-
-        {state === "receiving" && incomingMeta && (
-          <div className="space-y-4 py-2">
-            <FileMetaCard meta={incomingMeta} />
+            {incomingMeta && <FileMetaCard meta={incomingMeta} />}
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-bold">
                 <span>Receiving…</span>
@@ -959,7 +895,11 @@ function FileCard({ file, onRemove }: { file: File; onRemove?: () => void }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border-2 border-foreground bg-background px-3 py-2.5 shadow-[2px_2px_0_0_var(--color-foreground)]">
       {thumb ? (
-        <img src={thumb} alt="" className="h-10 w-10 rounded-lg object-cover flex-shrink-0 border border-foreground/20" />
+        <img
+          src={thumb}
+          alt=""
+          className="h-10 w-10 rounded-lg object-cover flex-shrink-0 border border-foreground/20"
+        />
       ) : (
         <span className="flex h-10 w-10 items-center justify-center rounded-lg border-2 border-foreground/20 bg-secondary/40 flex-shrink-0">
           <Icon className="h-5 w-5" />
