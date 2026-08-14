@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Sparkles, Linkedin, Github, Instagram } from "lucide-react";
+import { Sparkles, Linkedin, Instagram, Mail } from "lucide-react";
 import { CATEGORIES } from "@/lib/tools";
 
 export function Footer() {
@@ -41,17 +41,6 @@ export function Footer() {
               <Linkedin className="h-4 w-4" />
             </a>
 
-            {/* GitHub */}
-            <a
-              href="https://github.com/KalpKothari"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="GitHub"
-              className="rounded-full border-2 border-foreground bg-card p-2 text-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
-            >
-              <Github className="h-4 w-4" />
-            </a>
-
             {/* Instagram */}
             <a
               href="https://www.instagram.com/k_kothari_?igsh=eGxjOG83bzEybzcx"
@@ -61,6 +50,15 @@ export function Footer() {
               className="rounded-full border-2 border-foreground bg-card p-2 text-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
             >
               <Instagram className="h-4 w-4" />
+            </a>
+
+            {/* Mail */}
+            <a
+              href="mailto:kalpkothari14@gmail.com"
+              aria-label="Email"
+              className="rounded-full border-2 border-foreground bg-card p-2 text-foreground shadow-[3px_3px_0_0_var(--color-foreground)] transition-transform hover:-translate-y-0.5"
+            >
+              <Mail className="h-4 w-4" />
             </a>
           </div>
         </div>
