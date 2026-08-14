@@ -5,6 +5,7 @@
  * - Direct WebRTC P2P DataChannel via PeerJS
  * - Robust 2-way handshake (Receiver connects -> sends ACK -> Sender streams)
  * - ArrayBuffer chunking with Uint8Array transfer for cross-mobile compatibility (iOS Safari & Android Chrome)
+ * - Supports Images, Documents, and Video streaming
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -16,6 +17,7 @@ import {
   ScanLine,
   FileText,
   ImageIcon,
+  Video,
   X,
   RefreshCw,
   CheckCircle2,
@@ -28,14 +30,22 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const CHUNK_SIZE = 16 * 1024; // 16 KB binary chunks
-const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB max guard
+const CHUNK_SIZE = 32 * 1024; // 32 KB binary chunks for optimized media throughput
+const MAX_FILE_SIZE = 300 * 1024 * 1024; // 300 MB max guard
 const ALLOWED_TYPES = [
+  // Images
   "image/jpeg",
   "image/png",
   "image/gif",
   "image/webp",
   "image/svg+xml",
+  // Videos
+  "video/mp4",
+  "video/webm",
+  "video/quicktime", // .mov from iPhones
+  "video/x-matroska", // .mkv
+  "video/avi",
+  // Documents
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -92,7 +102,9 @@ function formatBytes(b: number) {
 }
 
 function mimeIcon(type: string) {
-  return type.startsWith("image/") ? ImageIcon : FileText;
+  if (type.startsWith("image/")) return ImageIcon;
+  if (type.startsWith("video/")) return Video;
+  return FileText;
 }
 
 function isDesktop() {
@@ -312,11 +324,11 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
     const f = e.target.files?.[0];
     if (!f) return;
     if (!ALLOWED_TYPES.includes(f.type)) {
-      setFileError("Unsupported file type. Choose an image or document.");
+      setFileError("Unsupported file type. Choose an image, video, or document.");
       return;
     }
     if (f.size > MAX_FILE_SIZE) {
-      setFileError("File too large. Maximum size is 100 MB.");
+      setFileError("File too large. Maximum size is 300 MB.");
       return;
     }
     setFile(f);
@@ -412,9 +424,9 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
                   <Upload className="h-6 w-6" />
                 </span>
                 <div className="text-center">
-                  <p className="text-sm font-bold">Choose image or document</p>
+                  <p className="text-sm font-bold">Choose media or document</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    JPG, PNG, PDF, DOCX, XLSX and more · up to 100 MB
+                    Images, Videos (MP4, MOV, WebM) & Docs · up to 300 MB
                   </p>
                 </div>
                 <input
@@ -768,6 +780,9 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
 
   if (state === "done" && incomingMeta) {
     const Icon = mimeIcon(incomingMeta.type);
+    const isImage = incomingMeta.type.startsWith("image/");
+    const isVideo = incomingMeta.type.startsWith("video/");
+
     return (
       <div className="space-y-4">
         <div className="rounded-2xl border-2 border-foreground bg-card p-6 shadow-[4px_4px_0_0_var(--color-foreground)] space-y-4">
@@ -777,11 +792,19 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
             </span>
             <p className="text-base font-bold">Transfer complete ✓</p>
           </div>
-          {receivedBlob && incomingMeta.type.startsWith("image/") && (
+          {receivedBlob && isImage && (
             <img
               src={URL.createObjectURL(receivedBlob)}
               alt={incomingMeta.name}
               className="rounded-xl border-2 border-foreground w-full max-h-64 object-contain bg-secondary/20"
+            />
+          )}
+          {receivedBlob && isVideo && (
+            <video
+              src={URL.createObjectURL(receivedBlob)}
+              controls
+              playsInline
+              className="rounded-xl border-2 border-foreground w-full max-h-64 object-contain bg-black"
             />
           )}
           <div className="rounded-xl border-2 border-foreground bg-background px-3 py-2.5 flex items-center gap-3">
@@ -905,6 +928,7 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
 
 function FileCard({ file, onRemove }: { file: File; onRemove?: () => void }) {
   const isImage = file.type.startsWith("image/");
+  const isVideo = file.type.startsWith("video/");
   const Icon = mimeIcon(file.type);
   const [thumb, setThumb] = useState<string | null>(null);
 
