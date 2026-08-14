@@ -54,13 +54,13 @@ export const TOOLS: Tool[] = [
   // PDF
   { slug: "merge-pdf", name: "Merge PDFs", description: "Combine multiple PDFs into a single file.", category: "pdf", icon: Merge, status: "live", popular: true, featured: true, keywords: ["combine", "join"] },
   { slug: "split-pdf", name: "Split PDF", description: "Split a PDF into individual pages or ranges.", category: "pdf", icon: Scissors, status: "live", popular: true },
+  { slug: "pdf-compress", name: "Compress PDF", description: "Reduce PDF file size without visible loss.", category: "pdf", icon: FileArchive, status: "live", popular: true, featured: true },
   { slug: "reorder-pdf", name: "Reorder PDF Pages", description: "Rearrange pages inside a PDF.", category: "pdf", icon: ListOrdered, status: "live" },
   { slug: "delete-pdf-pages", name: "Delete PDF Pages", description: "Remove selected pages from a PDF.", category: "pdf", icon: Trash2, status: "live" },
   { slug: "extract-pdf-pages", name: "Extract PDF Pages", description: "Export specific pages as a new PDF.", category: "pdf", icon: FilesIcon, status: "live" },
   { slug: "page-numbers", name: "Add Page Numbers", description: "Stamp page numbers onto every page.", category: "pdf", icon: Hash, status: "live" },
   { slug: "protect-pdf", name: "Password Protect PDF", description: "Encrypt a PDF with a password.", category: "pdf", icon: Lock, status: "live" },
   { slug: "sign-pdf", name: "Digital Signature", description: "Draw a signature and stamp it on a PDF.", category: "pdf", icon: PenLine, status: "live" },
-  { slug: "pdf-compress", name: "Compress PDF", description: "Reduce PDF file size without visible loss.", category: "pdf", icon: FileArchive, status: "live", popular: true, featured: true },
   { slug: "pdf-to-word", name: "PDF to Word", description: "Convert PDF documents into editable DOCX.", category: "pdf", icon: FileDown, status: "soon" },
   { slug: "word-to-pdf", name: "Word to PDF", description: "Convert DOCX documents into PDF.", category: "pdf", icon: FileUp, status: "soon" },
   { slug: "pdf-to-ppt", name: "PDF to PowerPoint", description: "Convert PDF slides into editable PPTX.", category: "pdf", icon: Presentation, status: "soon" },
@@ -70,23 +70,23 @@ export const TOOLS: Tool[] = [
   // Image
   { slug: "compress-image", name: "Compress Image", description: "Reduce image size without visible loss.", category: "image", icon: FileArchive, status: "live", popular: true, featured: true },
   { slug: "crop-image", name: "Crop Image", description: "Crop an image to any aspect ratio.", category: "image", icon: Crop, status: "live", popular: true },
-  { slug: "rotate-image", name: "Rotate Image", description: "Rotate and flip images.", category: "image", icon: RotateCw, status: "live" },
   { slug: "convert-image", name: "Image Converter", description: "Convert PNG, JPG, WEBP formats.", category: "image", icon: Repeat, status: "live", popular: true, keywords: ["png", "jpg", "webp"] },
+  { slug: "image-to-pdf", name: "Image to PDF", description: "Convert one or many images into a PDF.", category: "image", icon: FileImage, status: "live", popular: true },
+  { slug: "qr-code", name: "QR Code Generator", description: "Generate high-quality QR codes.", category: "image", icon: QrCode, status: "live", popular: true, featured: true },
+  { slug: "rotate-image", name: "Rotate Image", description: "Rotate and flip images.", category: "image", icon: RotateCw, status: "live" },
   { slug: "add-text-image", name: "Add Text to Image", description: "Overlay custom text on any image.", category: "image", icon: TextCursorInput, status: "live" },
   { slug: "sharpen-image", name: "Sharpen Image", description: "Enhance image sharpness.", category: "image", icon: Focus, status: "live" },
   { slug: "blur-region", name: "Blur Region / Face", description: "Blur a rectangular region of an image.", category: "image", icon: Sparkles, status: "live" },
-  { slug: "image-to-pdf", name: "Image to PDF", description: "Convert one or many images into a PDF.", category: "image", icon: FileImage, status: "live" },
-  { slug: "qr-code", name: "QR Code Generator", description: "Generate high-quality QR codes.", category: "image", icon: QrCode, status: "live", featured: true },
   { slug: "background-remover", name: "Background Remover", description: "Remove image backgrounds automatically.", category: "image", icon: Eraser, status: "soon" },
 
   // Audio
-  { slug: "trim-audio", name: "Trim Audio", description: "Cut a specific range from an audio file.", category: "audio", icon: Scissors, status: "live" },
+  { slug: "trim-audio", name: "Trim Audio", description: "Cut a specific range from an audio file.", category: "audio", icon: Scissors, status: "live", popular: true },
   { slug: "merge-audio", name: "Merge Audio", description: "Combine multiple audio files.", category: "audio", icon: Merge, status: "live" },
   { slug: "volume-changer", name: "Volume Changer", description: "Increase or decrease audio volume.", category: "audio", icon: Volume2, status: "live" },
   { slug: "fade-audio", name: "Fade In / Fade Out", description: "Add a fade-in or fade-out effect to audio.", category: "audio", icon: Waves, status: "live" },
   
   // Social
-  { slug: "youtube-thumbnail", name: "YouTube Thumbnail Downloader", description: "Download any YouTube video thumbnail in HD.", category: "social", icon: Youtube, status: "live" },
+  { slug: "youtube-thumbnail", name: "YouTube Thumbnail Downloader", description: "Download any YouTube video thumbnail in HD.", category: "social", icon: Youtube, status: "live", popular: true },
   { slug: "instagram-reel", name: "Instagram Reel Downloader", description: "Download public Instagram reels.", category: "social", icon: ImagePlay, status: "soon" },
   { slug: "instagram-photo", name: "Instagram Photo Downloader", description: "Save public Instagram photos.", category: "social", icon: Instagram, status: "soon" },
   { slug: "instagram-story", name: "Instagram Story Downloader", description: "Save public Instagram stories.", category: "social", icon: Instagram, status: "soon" },
@@ -101,26 +101,27 @@ export const TOOLS: Tool[] = [
   { slug: "linkedin-video", name: "LinkedIn Video Downloader", description: "Download public LinkedIn videos.", category: "social", icon: Linkedin, status: "soon" },
   
   // Text
-  { slug: "word-counter", name: "Word Counter", description: "Count words, sentences and paragraphs.", category: "text", icon: TypeIcon, status: "live", popular: true },
+  { slug: "word-counter", name: "Word Counter", description: "Count words, sentences and paragraphs.", category: "text", icon: TypeIcon, status: "live", popular: true, featured: true },
   { slug: "password-generator", name: "Password Generator", description: "Generate strong, secure passwords.", category: "text", icon: KeyRound, status: "live", popular: true, featured: true },
-  { slug: "text-comparison", name: "Text Comparison", description: "Compare two texts intelligently — detect additions, deletions, modifications, contradictions and numeric changes.", category: "text", icon: GitCompare, status: "live", popular: true },
+  { slug: "text-comparison", name: "Text Comparison", description: "Compare two texts intelligently — detect additions, deletions, modifications, contradictions and numeric changes.", category: "text", icon: GitCompare, status: "live" },
 
   // Student
-  { slug: "cgpa-calculator", name: "CGPA Calculator", description: "Compute CGPA & convert to percentage.", category: "student", icon: Award, status: "live", featured: true },
-  { slug: "percentage-calculator-student", name: "Marks Percentage", description: "Calculate percentage across multiple subjects.", category: "student", icon: Percent, status: "live" },
   { slug: "attendance-calculator", name: "Attendance Calculator", description: "Track attendance and see bunkable classes.", category: "student", icon: CalendarCheck, status: "live", popular: true, featured: true },
+  { slug: "cgpa-calculator", name: "CGPA Calculator", description: "Compute CGPA & convert to percentage.", category: "student", icon: Award, status: "live", popular: true },
+  { slug: "percentage-calculator-student", name: "Marks Percentage", description: "Calculate percentage across multiple subjects.", category: "student", icon: Percent, status: "live" },
 
   // Finance
-  { slug: "currency-converter", name: "Currency Converter", description: "Live currency conversion with INR support.", category: "finance", icon: Coins, status: "live" },
-  { slug: "emi-calculator", name: "EMI Calculator", description: "Indian-standard EMI with amortization.", category: "finance", icon: Calculator, status: "live" },
+  { slug: "emi-calculator", name: "EMI Calculator", description: "Indian-standard EMI with amortization.", category: "finance", icon: Calculator, status: "live", popular: true },
+  { slug: "currency-converter", name: "Currency Converter", description: "Live currency conversion with INR support.", category: "finance", icon: Coins, status: "live", popular: true },
   { slug: "loan-calculator", name: "Loan Calculator", description: "Estimate loan cost, interest and tenure.", category: "finance", icon: Calculator, status: "live" },
-  { slug: "savings-goal-calculator", name: "Savings Goal Calculator", description: "See exactly when you'll hit your savings goal or what it takes to get there.", category: "finance", icon: PiggyBank, status: "live", popular: true, featured: true },
-  { slug: "expense-tracker", name: "Expense Tracker", description: "Track your expenses and manage your budget.", category: "finance", icon: Wallet, status: "live", popular: true, featured: true },
+  { slug: "savings-goal-calculator", name: "Savings Goal Calculator", description: "See exactly when you'll hit your savings goal or what it takes to get there.", category: "finance", icon: PiggyBank, status: "live" },
+  { slug: "expense-tracker", name: "Expense Tracker", description: "Track your expenses and manage your budget.", category: "finance", icon: Wallet, status: "live" },
 
   // Utility
-  { slug: "unit-converter", name: "Unit Converter", description: "Convert length, weight, temperature and more.", category: "utility", icon: Ruler, status: "live", popular: true },
+  { slug: "phone-transfer", name: "Phone Transfer", description: "Direct P2P cross-platform file transfer without app installation.", category: "utility", icon: Smartphone, status: "live", popular: true, featured: true, keywords: ["airdrop", "p2p", "share", "quick share", "nearby share", "file transfer"] },
   { slug: "age-calculator", name: "Age Calculator", description: "Exact age in years, months, days.", category: "utility", icon: Cake, status: "live", popular: true },
-  { slug: "percentage-calculator", name: "Percentage Calculator", description: "All common percentage calculations.", category: "utility", icon: Percent, status: "live" },
+  { slug: "unit-converter", name: "Unit Converter", description: "Convert length, weight, temperature and more.", category: "utility", icon: Ruler, status: "live", popular: true },
+  { slug: "percentage-calculator", name: "Percentage Calculator", description: "All common percentage calculations.", category: "utility", icon: Percent, status: "live", popular: true },
   { slug: "bmi-calculator", name: "BMI Calculator", description: "Body Mass Index with health category.", category: "utility", icon: Activity, status: "live" },
   { slug: "timezone-converter", name: "Time Zone Converter", description: "Convert any time across time zones.", category: "utility", icon: Globe, status: "live" },
   { slug: "url-shortener", name: "URL Shortener", description: "Create a short link instantly.", category: "utility", icon: Link2, status: "live" },
@@ -130,7 +131,6 @@ export const TOOLS: Tool[] = [
   { slug: "spin-the-wheel", name: "Spin The Wheel", description: "Randomly select an option from a list.", category: "utility", icon: Repeat, status: "live" },
   { slug: "randomizer", name: "Randomizer", description: "Create random orders, groups, and selections instantly.", category: "utility", icon: Shuffle, status: "live" },
   { slug: "qr-scanner", name: "QR Code Scanner", description: "Scan QR codes using your device camera.", category: "utility", icon: QrCode, status: "live" },
-  { slug: "phone-transfer", name: "Phone Transfer", description: "Transfer data between your phones.", category: "utility", icon: Smartphone, status: "live" },
 ];
 
 export function getCategory(id: CategoryId): Category {
