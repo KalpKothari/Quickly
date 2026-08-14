@@ -260,12 +260,7 @@ export default function QrCodeScanner() {
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
       setState("scanning");
-      rafRef.current = requestAnimationFrame(tick);
     } catch (err) {
       const name = err instanceof DOMException ? err.name : "";
       if (name === "NotAllowedError" || name === "PermissionDeniedError") {
@@ -274,7 +269,22 @@ export default function QrCodeScanner() {
         setState("unsupported");
       }
     }
-  }, [tick]);
+  }, []);
+
+  // Safely attach stream and start frame decoding once video element is in DOM
+  useEffect(() => {
+    if (state === "scanning" && videoRef.current && streamRef.current) {
+      const video = videoRef.current;
+      video.srcObject = streamRef.current;
+      video
+        .play()
+        .then(() => {
+          if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+          rafRef.current = requestAnimationFrame(tick);
+        })
+        .catch(() => {});
+    }
+  }, [state, tick]);
 
   const cancelScan = useCallback(() => {
     stopCamera();
