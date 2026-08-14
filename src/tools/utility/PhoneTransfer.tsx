@@ -1,11 +1,11 @@
 /**
- * PhoneTransfer.tsx — Quickly Phone-to-Phone Transfer
+ * PhoneTransfer.tsx — Quickly Phone-to-Phone Transfer (High-Speed Turbo Edition)
  *
- * Architecture:
- * - Direct WebRTC P2P DataChannel via PeerJS
- * - Multi-file streaming support with sequential batching
- * - Real-time Receiver ACK syncing (both phones progress in 1:1 lockstep)
- * - Safe screen lock notice preventing premature tab exit
+ * Optimizations:
+ * - 64 KB binary chunks for maximum mobile data throughput
+ * - Native backpressure stream (bufferedAmountLowThreshold) with zero artificial delay
+ * - Global Anycast low-latency STUN & TURN network
+ * - Receiver ACK sync for progress tracking
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -26,12 +26,12 @@ import {
   Loader2,
   AlertTriangle,
   Smartphone,
-  Plus,
+  Zap,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const CHUNK_SIZE = 16 * 1024; // 16 KB binary chunks
+const CHUNK_SIZE = 64 * 1024; // 64 KB chunks for ultra-fast throughput
 const MAX_TOTAL_SIZE = 500 * 1024 * 1024; // 500 MB combined batch guard
 const ALLOWED_TYPES = [
   "image/jpeg",
@@ -55,13 +55,14 @@ const ALLOWED_TYPES = [
   "text/csv",
 ];
 
+// Low-latency Anycast STUN & TURN servers for fast cellular routing in India
 const PEER_CONFIG = {
   config: {
     iceServers: [
+      { urls: "stun:stun.cloudflare.com:3478" },
       { urls: "stun:stun.l.google.com:19302" },
       { urls: "stun:stun1.l.google.com:19302" },
       { urls: "stun:stun2.l.google.com:19302" },
-      { urls: "stun:stun.cloudflare.com:3478" },
       {
         urls: "turn:openrelay.metered.ca:80",
         username: "openrelayproject",
@@ -69,11 +70,6 @@ const PEER_CONFIG = {
       },
       {
         urls: "turn:openrelay.metered.ca:443",
-        username: "openrelayproject",
-        credential: "openrelayproject",
-      },
-      {
-        urls: "turn:openrelay.metered.ca:443?transport=tcp",
         username: "openrelayproject",
         credential: "openrelayproject",
       },
@@ -282,9 +278,14 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
           return;
         }
 
-        // When receiver is ready to receive the stream
+        // Full-speed native backpressure streaming
         if (data?.type === "READY_FOR_FILES" && filesRef.current.length > 0) {
           setState("sending");
+
+          const rawDataChannel = conn.dataChannel;
+          if (rawDataChannel) {
+            rawDataChannel.bufferedAmountLowThreshold = 256 * 1024; // 256 KB buffer ceiling
+          }
 
           const fileList = filesRef.current;
           for (let i = 0; i < fileList.length; i++) {
@@ -294,15 +295,26 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
             const arrayBuf = await currentFile.arrayBuffer();
             let offset = 0;
 
-            while (offset < arrayBuf.byteLength) {
-              const chunk = arrayBuf.slice(offset, offset + CHUNK_SIZE);
-              conn.send(chunk);
-              offset += chunk.byteLength;
+            await new Promise<void>((resolve) => {
+              const pump = () => {
+                while (offset < arrayBuf.byteLength) {
+                  if (rawDataChannel && rawDataChannel.bufferedAmount > 512 * 1024) {
+                    rawDataChannel.onbufferedamountlow = () => {
+                      rawDataChannel.onbufferedamountlow = null;
+                      pump();
+                    };
+                    return;
+                  }
 
-              if (offset % (CHUNK_SIZE * 4) === 0) {
-                await new Promise((r) => setTimeout(r, 4));
-              }
-            }
+                  const chunk = arrayBuf.slice(offset, offset + CHUNK_SIZE);
+                  conn.send(chunk);
+                  offset += chunk.byteLength;
+                }
+                resolve();
+              };
+
+              pump();
+            });
 
             conn.send({ type: "FILE_DONE", index: i });
           }
@@ -558,16 +570,21 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
           <div className="flex flex-col items-center gap-3 py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm font-bold">Connecting…</p>
-            <p className="text-xs text-muted-foreground">Establishing direct connection</p>
+            <p className="text-xs text-muted-foreground">Establishing direct high-speed P2P pipe</p>
           </div>
         )}
 
         {state === "sending" && (
           <div className="space-y-4 py-2">
             <div className="rounded-xl border-2 border-foreground bg-secondary/30 p-3 space-y-1">
-              <p className="text-xs font-bold truncate">
-                Sending file {currentFileIndex + 1} of {files.length}: {files[currentFileIndex]?.name}
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold truncate">
+                  Sending file {currentFileIndex + 1} of {files.length}: {files[currentFileIndex]?.name}
+                </p>
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-primary">
+                  <Zap className="h-3 w-3 fill-current" /> Turbo
+                </span>
+              </div>
               <p className="text-[11px] text-muted-foreground">
                 Total size: {formatBytes(totalBytes)}
               </p>
@@ -575,12 +592,12 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
 
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-bold">
-                <span>Synchronized Progress</span>
+                <span>Transfer Progress</span>
                 <span>{progress}%</span>
               </div>
               <div className="h-3 rounded-full border-2 border-foreground bg-background overflow-hidden">
                 <div
-                  className="h-full bg-primary transition-all duration-150"
+                  className="h-full bg-primary transition-all duration-100"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -588,7 +605,7 @@ function SenderFlow({ onReset }: { onReset: () => void }) {
 
             <div className="rounded-xl border border-foreground/20 bg-background/60 p-2.5 text-center">
               <p className="text-[11px] font-bold text-foreground">
-                Do not close or leave this screen on either phone until transfer completes.
+                Keep both phones unlocked on this page until the transfer reaches 100%.
               </p>
             </div>
 
@@ -1034,9 +1051,14 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
         {state === "receiving" && (
           <div className="space-y-4 py-2">
             <div className="rounded-xl border-2 border-foreground bg-secondary/30 p-3 space-y-1">
-              <p className="text-xs font-bold truncate">
-                Receiving file {currentFileIndex + 1} of {incomingMetas.length}: {incomingMetas[currentFileIndex]?.name}
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold truncate">
+                  Receiving file {currentFileIndex + 1} of {incomingMetas.length}: {incomingMetas[currentFileIndex]?.name}
+                </p>
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-primary">
+                  <Zap className="h-3 w-3 fill-current" /> Turbo
+                </span>
+              </div>
               <p className="text-[11px] text-muted-foreground">
                 Total size: {formatBytes(totalBatchSize)}
               </p>
@@ -1044,12 +1066,12 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
 
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-bold">
-                <span>Synchronized Progress</span>
+                <span>Transfer Progress</span>
                 <span>{progress}%</span>
               </div>
               <div className="h-3 rounded-full border-2 border-foreground bg-background overflow-hidden">
                 <div
-                  className="h-full bg-primary transition-all duration-150"
+                  className="h-full bg-primary transition-all duration-100"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -1057,7 +1079,7 @@ function ReceiverFlow({ onReset }: { onReset: () => void }) {
 
             <div className="rounded-xl border border-foreground/20 bg-background/60 p-2.5 text-center">
               <p className="text-[11px] font-bold text-foreground">
-                Do not close or leave this screen on either phone until transfer completes.
+                Keep both phones unlocked on this page until the transfer reaches 100%.
               </p>
             </div>
 
