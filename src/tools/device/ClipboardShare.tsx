@@ -220,7 +220,7 @@ function initials(name: string) {
 
 function inviteUrl(roomId: string) {
   if (typeof window === "undefined") return "";
-  return `${window.location.origin}/tool/clipboard?room=${encodeURIComponent(roomId)}`;
+  return `${window.location.origin}/tool/clipboard-share?room=${encodeURIComponent(roomId)}`;
 }
 
 /**
