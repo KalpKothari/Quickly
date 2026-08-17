@@ -58,6 +58,7 @@ const Stopwatch = lazy(() => import("./utility/Stopwatch"));
 const SpinTheWheel = lazy(() => import("./utility/SpinTheWheel"));
 const Randomizer = lazy(() => import("./utility/Randomizer"));
 const QrScanner = lazy(() => import("./utility/QrScanner"));
+const StreakTracker = lazy(() => import("./utility/StreakTracker"));
 
 // Device
 const PhoneTransfer = lazy(() => import("./device/PhoneTransfer"));
@@ -125,6 +126,7 @@ export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
   "savings-goal-calculator": SavingsGoalCalculator,
   "qr-scanner": QrScanner,
   "expense-tracker": ExpenseTracker,
+  "streak-tracker": StreakTracker,
 
   "phone-transfer": PhoneTransfer,
   "chat": Chat,

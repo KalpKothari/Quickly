@@ -13,6 +13,7 @@ import {
   Wallet, Banknote, Shuffle,
   Smartphone,
   Users, Clipboard,
+  Target,
 } from "lucide-react";
 
 export type CategoryId =
@@ -45,18 +46,18 @@ export const CATEGORIES: Category[] = [
   { id: "image", slug: "images", name: "Image Utilities", tagline: "Compress, crop, convert & enhance", icon: ImageIcon, color: "cat-image", gradient: "from-sky-500/15 to-cyan-500/10" },
   { id: "audio", slug: "audio", name: "Audio Utilities", tagline: "Trim, merge, fade & adjust", icon: Music, color: "cat-audio", gradient: "from-amber-500/15 to-yellow-500/10" },
   { id: "device", slug: "devices", name: "Device Utilities", tagline: "Optimize, manage & troubleshoot", icon: Smartphone, color: "cat-device", gradient: "from-blue-500/15 to-indigo-500/10" },
-  { id: "social", slug: "social", name: "Social Media", tagline: "Downloaders & platform utilities", icon: Share2, color: "cat-social", gradient: "from-pink-500/15 to-fuchsia-500/10" },
   { id: "student", slug: "students", name: "Student Tools", tagline: "CGPA, attendance & marks", icon: GraduationCap, color: "cat-student", gradient: "from-emerald-500/15 to-teal-500/10" },
   { id: "text", slug: "text", name: "Text Tools", tagline: "Counters, generators & formatters", icon: Type, color: "cat-text", gradient: "from-slate-500/15 to-zinc-500/10" },
   { id: "finance", slug: "finance", name: "Finance Tools", tagline: "Calculators, trackers & savings vaults", icon: Banknote, color: "cat-finance", gradient: "from-emerald-500/15 to-amber-500/10" },
   { id: "utility", slug: "utilities", name: "Mini Tools", tagline: "Calculators, converters & timers", icon: Wrench, color: "cat-utility", gradient: "from-violet-500/15 to-indigo-500/10" },
+  { id: "social", slug: "social", name: "Social Media", tagline: "Downloaders & platform utilities", icon: Share2, color: "cat-social", gradient: "from-pink-500/15 to-fuchsia-500/10" },
 ];
 
 export const TOOLS: Tool[] = [
   // PDF
   { slug: "merge-pdf", name: "Merge PDFs", description: "Combine multiple PDFs into a single file.", category: "pdf", icon: Merge, status: "live", popular: true, featured: true, keywords: ["combine", "join"] },
   { slug: "split-pdf", name: "Split PDF", description: "Split a PDF into individual pages or ranges.", category: "pdf", icon: Scissors, status: "live", popular: true },
-  { slug: "pdf-compress", name: "Compress PDF", description: "Reduce PDF file size without visible loss.", category: "pdf", icon: FileArchive, status: "live", popular: true, featured: true },
+  { slug: "pdf-compress", name: "Compress PDF", description: "Reduce PDF file size without visible loss.", category: "pdf", icon: FileArchive, status: "live", popular: true },
   { slug: "reorder-pdf", name: "Reorder PDF Pages", description: "Rearrange pages inside a PDF.", category: "pdf", icon: ListOrdered, status: "live" },
   { slug: "delete-pdf-pages", name: "Delete PDF Pages", description: "Remove selected pages from a PDF.", category: "pdf", icon: Trash2, status: "live" },
   { slug: "extract-pdf-pages", name: "Extract PDF Pages", description: "Export specific pages as a new PDF.", category: "pdf", icon: FilesIcon, status: "live" },
@@ -71,7 +72,7 @@ export const TOOLS: Tool[] = [
 
   // Image
   { slug: "compress-image", name: "Compress Image", description: "Reduce image size without visible loss.", category: "image", icon: FileArchive, status: "live", popular: true, featured: true },
-  { slug: "crop-image", name: "Crop Image", description: "Crop an image to any aspect ratio.", category: "image", icon: Crop, status: "live", popular: true },
+  { slug: "crop-image", name: "Crop Image", description: "Crop an image to any aspect ratio.", category: "image", icon: Crop, status: "live" },
   { slug: "convert-image", name: "Image Converter", description: "Convert PNG, JPG, WEBP formats.", category: "image", icon: Repeat, status: "live", popular: true, keywords: ["png", "jpg", "webp"] },
   { slug: "image-to-pdf", name: "Image to PDF", description: "Convert one or many images into a PDF.", category: "image", icon: FileImage, status: "live", popular: true },
   { slug: "qr-code", name: "QR Code Generator", description: "Generate high-quality QR codes.", category: "image", icon: QrCode, status: "live", popular: true, featured: true },
@@ -132,10 +133,11 @@ export const TOOLS: Tool[] = [
   { slug: "spin-the-wheel", name: "Spin The Wheel", description: "Randomly select an option from a list.", category: "utility", icon: Repeat, status: "live" },
   { slug: "randomizer", name: "Randomizer", description: "Create random orders, groups, and selections instantly.", category: "utility", icon: Shuffle, status: "live" },
   { slug: "qr-scanner", name: "QR Code Scanner", description: "Scan QR codes using your device camera.", category: "utility", icon: QrCode, status: "live" },
+  { slug: "streak-tracker", name: "Streak Tracker", description: "Track your daily habits and build consistency.", category: "utility", icon: Target, status: "live" },
 
   //Device
    { slug: "phone-transfer", name: "Phone Transfer", description: "Direct P2P cross-platform file transfer without app installation.", category: "device", icon: Smartphone, status: "live", popular: true, featured: true, keywords: ["airdrop", "p2p", "share", "quick share", "nearby share", "file transfer"] },
-   { slug: "chat", name: "Chat", description: "Direct P2P cross-platform chat without app installation.", category: "device", icon: Users, status: "live", popular: true, featured: true, keywords: ["airdrop", "p2p", "share", "quick share", "nearby share", "file transfer"] },
+   { slug: "chat", name: "Chat Quickly", description: "Direct P2P cross-platform chat without app installation.", category: "device", icon: Users, status: "live", popular: true, featured: true, keywords: ["airdrop", "p2p", "share", "quick share", "nearby share", "file transfer"] },
    { slug: "clipboard-share", name: "Clipboard Share", description: "Share texts and links between devices.", category: "device", icon: Clipboard, status: "live", popular: true, featured: true, keywords: ["airdrop", "p2p", "share", "quick share", "nearby share", "file transfer"] },
 ];
 
