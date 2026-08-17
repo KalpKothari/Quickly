@@ -59,6 +59,12 @@ function Landing() {
   const liveTools = TOOLS.filter((t) => t.status === "live");
   const tickerTools = [...liveTools, ...liveTools];
 
+  // Filter out social media category from the home screen display
+  const displayedCategories = useMemo(
+    () => CATEGORIES.filter((c) => c.id !== "social" && c.slug !== "social" && c.id !== "social-media" && c.slug !== "social-media"),
+    []
+  );
+
   // ---- Support the Project (UPI) state ----
   const [selectedPreset, setSelectedPreset] = useState<number | null>(49);
   const [customAmount, setCustomAmount] = useState("");
@@ -180,14 +186,12 @@ function Landing() {
 
       {/* HERO */}
       <section className="relative overflow-hidden px-4 pt-16 pb-10 sm:pt-24">
-        {/* decorative blobs, flat & light, not glowing */}
         <div aria-hidden className="pointer-events-none absolute inset-0">
           <div className="qk-blob absolute -left-16 top-10 h-56 w-56 bg-primary/15" />
           <div className="qk-blob absolute -right-10 top-32 h-48 w-48 bg-orange-500/15" style={{ animationDelay: "2s" }} />
           <div className="qk-blob absolute left-1/2 bottom-0 h-40 w-40 bg-fuchsia-500/10" style={{ animationDelay: "4s" }} />
         </div>
 
-        {/* floating sticker icons */}
         <div aria-hidden className="pointer-events-none absolute inset-0 hidden sm:block">
           {[
             { Icon: Sparkles, top: "12%", left: "8%", r: "-12deg", c: "text-primary", d: "0s" },
@@ -296,11 +300,11 @@ function Landing() {
           <div>
             <span className="rounded-md border-2 border-foreground bg-orange-500/20 px-2 py-0.5 text-xs font-bold uppercase tracking-widest">Browse</span>
             <h2 className="mt-3 font-display text-3xl font-bold sm:text-4xl">Explore by category</h2>
-            <p className="mt-2 text-muted-foreground">Eight collections. Every tool crafted for real work.</p>
+            <p className="mt-2 text-muted-foreground">Every tool crafted for real work.</p>
           </div>
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {CATEGORIES.map((c, i) => {
+          {displayedCategories.map((c, i) => {
             const count = TOOLS.filter((t) => t.category === c.id && t.status === "live").length;
             return (
               <Link
@@ -433,7 +437,7 @@ function Landing() {
         <div className="grid gap-6 sm:grid-cols-4">
           {[
             ["46+", "Tools", "var(--color-primary)"],
-            ["8", "Categories", "#f97316"],
+            ["7", "Categories", "#f97316"],
             ["100%", "In-browser", "#d946ef"],
             ["0", "Signups needed", "var(--color-primary)"],
           ].map(([n, l, c], i) => (
@@ -538,14 +542,12 @@ function Landing() {
           className="qk-hard relative overflow-hidden rounded-3xl bg-card p-6 sm:p-8"
           style={{ ["--shadow-c" as string]: "#d946ef" }}
         >
-          {/* decorative accents to match the rest of the site */}
           <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
             <div className="qk-blob absolute -right-14 -top-14 h-40 w-40 bg-fuchsia-500/10" />
             <div className="qk-blob absolute -bottom-16 -left-10 h-36 w-36 bg-primary/10" style={{ animationDelay: "3s" }} />
           </div>
 
           <div className="relative grid gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)] lg:items-start lg:gap-10">
-            {/* left: message */}
             <div className="text-center lg:pt-1 lg:text-left">
               <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border-2 border-foreground bg-fuchsia-500/15 text-fuchsia-500 lg:mx-0">
                 <Heart className="h-5 w-5" />
@@ -557,7 +559,6 @@ function Landing() {
               </p>
             </div>
 
-            {/* right: interactive controls */}
             <div className="mx-auto flex w-full max-w-sm flex-col items-stretch gap-3 lg:mx-0">
               <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
                 {PRESET_AMOUNTS.map((amt) => (
@@ -608,7 +609,6 @@ function Landing() {
                 </p>
               )}
 
-              {/* QR code (desktop only, revealed on click) — hugs its own content, no stretch */}
               {showQR && isValidAmount && (
                 <div className="qk-pop mx-auto inline-flex items-center gap-4 self-center rounded-2xl border-2 border-foreground bg-white p-3 lg:mx-0 lg:self-start">
                   <div className="flex h-[140px] w-[140px] shrink-0 items-center justify-center bg-white">

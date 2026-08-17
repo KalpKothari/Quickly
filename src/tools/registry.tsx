@@ -58,7 +58,10 @@ const Stopwatch = lazy(() => import("./utility/Stopwatch"));
 const SpinTheWheel = lazy(() => import("./utility/SpinTheWheel"));
 const Randomizer = lazy(() => import("./utility/Randomizer"));
 const QrScanner = lazy(() => import("./utility/QrScanner"));
-const PhoneTransfer = lazy(() => import("./utility/PhoneTransfer"));
+
+// Device
+const PhoneTransfer = lazy(() => import("./device/PhoneTransfer"));
+const Chat = lazy(() => import("./device/Chat"));
 
 // Finance — FIXED: Pointed strictly to your newly established financial file folder directory context
 const CurrencyConverter = lazy(() => import("./finance/CurrencyConverter"));
@@ -121,5 +124,7 @@ export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
   "savings-goal-calculator": SavingsGoalCalculator,
   "qr-scanner": QrScanner,
   "expense-tracker": ExpenseTracker,
+
   "phone-transfer": PhoneTransfer,
+  "chat": Chat,
 };
