@@ -12,7 +12,7 @@ import {
   Award, CalendarCheck, PiggyBank,
   Wallet, Banknote, Shuffle,
   Smartphone,
-  Users,
+  Users, Clipboard,
 } from "lucide-react";
 
 export type CategoryId =
@@ -136,6 +136,7 @@ export const TOOLS: Tool[] = [
   //Device
    { slug: "phone-transfer", name: "Phone Transfer", description: "Direct P2P cross-platform file transfer without app installation.", category: "device", icon: Smartphone, status: "live", popular: true, featured: true, keywords: ["airdrop", "p2p", "share", "quick share", "nearby share", "file transfer"] },
    { slug: "chat", name: "Chat", description: "Direct P2P cross-platform chat without app installation.", category: "device", icon: Users, status: "live", popular: true, featured: true, keywords: ["airdrop", "p2p", "share", "quick share", "nearby share", "file transfer"] },
+   { slug: "clipboard-share", name: "Clipboard Share", description: "Share texts and links between devices.", category: "device", icon: Clipboard, status: "live", popular: true, featured: true, keywords: ["airdrop", "p2p", "share", "quick share", "nearby share", "file transfer"] },
 ];
 
 export function getCategory(id: CategoryId): Category {

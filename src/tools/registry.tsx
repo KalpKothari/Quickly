@@ -62,6 +62,7 @@ const QrScanner = lazy(() => import("./utility/QrScanner"));
 // Device
 const PhoneTransfer = lazy(() => import("./device/PhoneTransfer"));
 const Chat = lazy(() => import("./device/Chat"));
+const ClipboardShare = lazy(() => import("./device/ClipboardShare"));
 
 // Finance — FIXED: Pointed strictly to your newly established financial file folder directory context
 const CurrencyConverter = lazy(() => import("./finance/CurrencyConverter"));
@@ -127,4 +128,5 @@ export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
 
   "phone-transfer": PhoneTransfer,
   "chat": Chat,
+  "clipboard-share": ClipboardShare,
 };
