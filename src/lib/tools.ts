@@ -107,7 +107,7 @@ export const TOOLS: Tool[] = [
   { slug: "word-counter", name: "Word Counter", description: "Count words, sentences and paragraphs.", category: "text", icon: TypeIcon, status: "live", popular: true },
   { slug: "password-generator", name: "Password Generator", description: "Generate strong, secure passwords.", category: "text", icon: KeyRound, status: "live", popular: true },
   { slug: "text-comparison", name: "Text Comparison", description: "Compare two texts intelligently — detect additions, deletions, modifications, contradictions and numeric changes.", category: "text", icon: GitCompare, status: "live" },
-  { slug: "typing-battle", name: "Typing Battle", description: "A real-time typing combat game. Clear randomly generated letter targets to attack, build combos for criticals, and outlast the bot across four difficulty tiers.", category: "text", icon: Keyboard, status: "live", featured: true },
+  { slug: "typing-battle", name: "Typing Battle", description: "A real-time typing combat game.", category: "text", icon: Keyboard, status: "live", featured: true },
 
   // Student
   { slug: "attendance-calculator", name: "Attendance Calculator", description: "Track attendance and see bunkable classes.", category: "student", icon: CalendarCheck, status: "live", popular: true, featured: true },
