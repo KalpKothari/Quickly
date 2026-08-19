@@ -54,12 +54,11 @@ const BmiCalculator = lazy(() => import("./utility/BmiCalculator"));
 const TimezoneConverter = lazy(() => import("./utility/TimezoneConverter"));
 const UrlShortener = lazy(() => import("./utility/UrlShortener"));
 const DateDifference = lazy(() => import("./utility/DateDifference"));
-const CountdownTimer = lazy(() => import("./utility/CountdownTimer"));
-const Stopwatch = lazy(() => import("./utility/Stopwatch"));
 const SpinTheWheel = lazy(() => import("./utility/SpinTheWheel"));
 const Randomizer = lazy(() => import("./utility/Randomizer"));
 const QrScanner = lazy(() => import("./utility/QrScanner"));
 const StreakTracker = lazy(() => import("./utility/StreakTracker"));
+const SmartShoppingComparator = lazy(() => import("./utility/SmartShoppingComparator"));
 
 // Device
 const PhoneTransfer = lazy(() => import("./device/PhoneTransfer"));
@@ -111,6 +110,7 @@ export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
   "cgpa-calculator": CGPA,
   "percentage-calculator-student": MarksPercentage,
   "attendance-calculator": Attendance,
+  
 
   "unit-converter": UnitConverter,
   "currency-converter": CurrencyConverter,
@@ -122,8 +122,8 @@ export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
   "timezone-converter": TimezoneConverter,
   "url-shortener": UrlShortener,
   "date-difference": DateDifference,
-  "countdown-timer": CountdownTimer,
-  "stopwatch": Stopwatch,
+  "smart-shopping-comparator": SmartShoppingComparator,
+
   "spin-the-wheel": SpinTheWheel,
   "randomizer": Randomizer,
   "savings-goal-calculator": SavingsGoalCalculator,

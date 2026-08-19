@@ -13,7 +13,7 @@ import {
   Wallet, Banknote, Shuffle,
   Smartphone,
   Users, Clipboard,
-  Target, Keyboard,
+  Target, Keyboard, Scale, 
 } from "lucide-react";
 
 export type CategoryId =
@@ -113,6 +113,7 @@ export const TOOLS: Tool[] = [
   { slug: "attendance-calculator", name: "Attendance Calculator", description: "Track attendance and see bunkable classes.", category: "student", icon: CalendarCheck, status: "live", popular: true, featured: true },
   { slug: "cgpa-calculator", name: "CGPA Calculator", description: "Compute CGPA & convert to percentage.", category: "student", icon: Award, status: "live", popular: true },
   { slug: "percentage-calculator-student", name: "Marks Percentage", description: "Calculate percentage across multiple subjects.", category: "student", icon: Percent, status: "live" },
+  
 
   // Finance
   { slug: "emi-calculator", name: "EMI Calculator", description: "Indian-standard EMI with amortization.", category: "finance", icon: Calculator, status: "live", popular: true, featured: true },
@@ -129,12 +130,11 @@ export const TOOLS: Tool[] = [
   { slug: "timezone-converter", name: "Time Zone Converter", description: "Convert any time across time zones.", category: "utility", icon: Globe, status: "live" },
   { slug: "url-shortener", name: "URL Shortener", description: "Create a short link instantly.", category: "utility", icon: Link2, status: "live" },
   { slug: "date-difference", name: "Date Difference", description: "Days, weeks, months between two dates.", category: "utility", icon: CalendarClock, status: "live" },
-  { slug: "countdown-timer", name: "Countdown Timer", description: "Count down to any moment.", category: "utility", icon: Timer, status: "live" },
-  { slug: "stopwatch", name: "Stopwatch", description: "Precise stopwatch with laps.", category: "utility", icon: TimerReset, status: "live" },
   { slug: "spin-the-wheel", name: "Spin The Wheel", description: "Randomly select an option from a list.", category: "utility", icon: Repeat, status: "live" },
   { slug: "randomizer", name: "Randomizer", description: "Create random orders, groups, and selections instantly.", category: "utility", icon: Shuffle, status: "live" },
   { slug: "qr-scanner", name: "QR Code Scanner", description: "Scan QR codes using your device camera.", category: "utility", icon: QrCode, status: "live" },
   { slug: "streak-tracker", name: "Streak Tracker", description: "Track your daily habits and build consistency.", category: "utility", icon: Target, status: "live" },
+  { slug: "smart-shopping-comparator", name: "Smart Shopping Comparator", description: "Compare prices and features of products across different retailers.", category: "utility", icon: Scale, status: "live" },
 
   //Device
    { slug: "phone-transfer", name: "Phone Transfer", description: "Direct P2P cross-platform file transfer without app installation.", category: "device", icon: Smartphone, status: "live", popular: true, featured: true, keywords: ["airdrop", "p2p", "share", "quick share", "nearby share", "file transfer"] },

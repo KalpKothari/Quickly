@@ -579,7 +579,7 @@ export default function TypingBattle() {
             </div>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed">
               Random letter targets are generated in your browser. Every correct key chips the
-              opponent — finishing a whole target lands a real hit. Type fast and clean for combos
+              opponent, finishing a whole target lands a real hit. Type fast and clean for combos
               and critical strikes. Miss a key and the bot gets an opening.
             </p>
           </div>
