@@ -27,7 +27,7 @@ export function Footer() {
             Quickly
           </Link>
           <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-            All-in-one productivity toolbox. 46+ free tools that work right in your browser — no signup, no uploads to servers.
+            All-in-one productivity toolbox. 48+ free tools that work right in your browser — no signup, no uploads to servers.
           </p>
           <div className="mt-4 flex gap-2">
             {/* LinkedIn */}

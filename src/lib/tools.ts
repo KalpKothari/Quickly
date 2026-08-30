@@ -43,7 +43,7 @@ export interface Tool {
 
 export const CATEGORIES: Category[] = [
   { id: "pdf", slug: "pdf", name: "PDF Utilities", tagline: "Merge, split, sign & secure documents", icon: FileText, color: "cat-pdf", gradient: "from-rose-500/15 to-orange-500/10" },
-  { id: "image", slug: "images", name: "Image Utilities", tagline: "Compress, crop, convert & enhance", icon: ImageIcon, color: "cat-image", gradient: "from-sky-500/15 to-cyan-500/10" },
+  { id: "image", slug: "images", name: "Image Utilities", tagline: "Compress, convert & enhance", icon: ImageIcon, color: "cat-image", gradient: "from-sky-500/15 to-cyan-500/10" },
   { id: "audio", slug: "audio", name: "Audio Utilities", tagline: "Trim, merge, fade & adjust", icon: Music, color: "cat-audio", gradient: "from-amber-500/15 to-yellow-500/10" },
   { id: "device", slug: "devices", name: "Device Utilities", tagline: "Optimize, manage & troubleshoot", icon: Smartphone, color: "cat-device", gradient: "from-blue-500/15 to-indigo-500/10" },
   { id: "student", slug: "students", name: "Student Tools", tagline: "CGPA, attendance & marks", icon: GraduationCap, color: "cat-student", gradient: "from-emerald-500/15 to-teal-500/10" },
@@ -72,12 +72,9 @@ export const TOOLS: Tool[] = [
 
   // Image
   { slug: "compress-image", name: "Compress Image", description: "Reduce image size without visible loss.", category: "image", icon: FileArchive, status: "live", popular: true, featured: true },
-  { slug: "crop-image", name: "Crop Image", description: "Crop an image to any aspect ratio.", category: "image", icon: Crop, status: "live" },
   { slug: "convert-image", name: "Image Converter", description: "Convert PNG, JPG, WEBP formats.", category: "image", icon: Repeat, status: "live", popular: true, keywords: ["png", "jpg", "webp"] },
   { slug: "image-to-pdf", name: "Image to PDF", description: "Convert one or many images into a PDF.", category: "image", icon: FileImage, status: "live", popular: true },
   { slug: "qr-code", name: "QR Code Generator", description: "Generate high-quality QR codes.", category: "image", icon: QrCode, status: "live", popular: true, featured: true },
-  { slug: "rotate-image", name: "Rotate Image", description: "Rotate and flip images.", category: "image", icon: RotateCw, status: "live" },
-  { slug: "add-text-image", name: "Add Text to Image", description: "Overlay custom text on any image.", category: "image", icon: TextCursorInput, status: "live" },
   { slug: "sharpen-image", name: "Sharpen Image", description: "Enhance image sharpness.", category: "image", icon: Focus, status: "live" },
   { slug: "blur-region", name: "Blur Region / Face", description: "Blur a rectangular region of an image.", category: "image", icon: Sparkles, status: "live" },
   { slug: "background-remover", name: "Background Remover", description: "Remove image backgrounds automatically.", category: "image", icon: Eraser, status: "soon" },
@@ -114,7 +111,6 @@ export const TOOLS: Tool[] = [
   { slug: "cgpa-calculator", name: "CGPA Calculator", description: "Compute CGPA & convert to percentage.", category: "student", icon: Award, status: "live", popular: true },
   { slug: "percentage-calculator-student", name: "Marks Percentage", description: "Calculate percentage across multiple subjects.", category: "student", icon: Percent, status: "live" },
   
-
   // Finance
   { slug: "emi-calculator", name: "EMI Calculator", description: "Indian-standard EMI with amortization.", category: "finance", icon: Calculator, status: "live", popular: true, featured: true },
   { slug: "currency-converter", name: "Currency Converter", description: "Live currency conversion with INR support.", category: "finance", icon: Coins, status: "live", popular: true },
