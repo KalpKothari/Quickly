@@ -17,10 +17,7 @@ const PdfCompress = lazy(() => import("./pdf/PdfCompress"));
 
 // Image
 const CompressImage = lazy(() => import("./image/CompressImage"));
-const CropImage = lazy(() => import("./image/CropImage"));
-const RotateImage = lazy(() => import("./image/RotateImage"));
 const ConvertImage = lazy(() => import("./image/ConvertImage"));
-const AddTextImage = lazy(() => import("./image/AddTextImage"));
 const SharpenImage = lazy(() => import("./image/SharpenImage"));
 const BlurRegion = lazy(() => import("./image/BlurRegion"));
 const ImageToPdf = lazy(() => import("./image/ImageToPdf"));
@@ -86,10 +83,7 @@ export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
  
 
   "compress-image": CompressImage,
-  "crop-image": CropImage,
-  "rotate-image": RotateImage,
   "convert-image": ConvertImage,
-  "add-text-image": AddTextImage,
   "sharpen-image": SharpenImage,
   "blur-region": BlurRegion,
   "image-to-pdf": ImageToPdf,
