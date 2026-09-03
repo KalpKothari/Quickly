@@ -175,15 +175,27 @@ export default function ImageToPdf() {
       <FileDrop accept="image/png,image/jpeg" multiple files={files} onFiles={setFiles} hint="Add PNG/JPG images (order = drop order)" />
 
       {files.length > 0 && (
-        <label className="inline-flex items-center gap-2 text-sm font-semibold">
-          <input
-            type="checkbox"
-            checked={previewEnabled}
-            onChange={(e) => setPreviewEnabled(e.target.checked)}
-            className="h-4 w-4 rounded border-2 border-foreground accent-foreground"
-          />
-          Preview your PDF
-        </label>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <label className="inline-flex items-center gap-2 text-sm font-semibold">
+            <input
+              type="checkbox"
+              checked={previewEnabled}
+              onChange={(e) => setPreviewEnabled(e.target.checked)}
+              className="h-4 w-4 rounded border-2 border-foreground accent-foreground"
+            />
+            Preview your PDF
+          </label>
+
+          <button
+            type="button"
+            onClick={run}
+            disabled={busy}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            <Download className="h-4 w-4" />
+            {busy ? `Creating... (${progress.done}/${progress.total})` : `Create PDF (${files.length} pages)`}
+          </button>
+        </div>
       )}
 
       {files.length > 0 && previewEnabled && (
@@ -248,46 +260,6 @@ export default function ImageToPdf() {
             );
           })}
         </div>
-      )}
-
-      {files.length > 0 && !previewEnabled && (
-        <ul className="space-y-2">
-          {files.map((f, i) => (
-            <li
-              key={`${f.name}-${i}`}
-              className="flex items-center justify-between gap-2 rounded-xl border-2 border-foreground bg-background px-3 py-2 shadow-[3px_3px_0_0_var(--color-foreground)]"
-            >
-              <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-foreground text-xs font-bold">
-                  {i + 1}
-                </span>
-                <span className="truncate" title={f.name}>
-                  {f.name}
-                </span>
-              </span>
-              <button
-                type="button"
-                onClick={() => removeFile(f)}
-                aria-label="Remove image"
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-foreground hover:opacity-90"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {files.length > 0 && (
-        <button
-          type="button"
-          onClick={run}
-          disabled={busy}
-          className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
-        >
-          <Download className="h-4 w-4" />
-          {busy ? `Creating... (${progress.done}/${progress.total})` : `Create PDF (${files.length} pages)`}
-        </button>
       )}
     </div>
   );
