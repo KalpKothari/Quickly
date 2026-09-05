@@ -6,7 +6,6 @@ import { FileDrop } from "@/components/tool/FileDrop";
 import { downloadBlob } from "@/lib/format";
 import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
-// --- Tunables for PDF size optimization ---------------------------------
 const MAX_DIMENSION = 2000;
 const JPEG_QUALITY = 0.82;
 
@@ -115,10 +114,16 @@ export default function ImageToPdf() {
     previewsRef.current = previews;
   }, [previews]);
 
+  // Synchronizes additions and deletions triggered from FileDrop
   const handleFilesChange = (incomingFiles: File[]) => {
+    if (incomingFiles.length < files.length) {
+      setFiles(incomingFiles);
+      return;
+    }
+
     if (orderMode === "selection") {
-      const single = incomingFiles.slice(0, 1);
-      setFiles((prev) => [...prev, ...single]);
+      const newlyAdded = incomingFiles.slice(-1);
+      setFiles((prev) => [...prev, ...newlyAdded]);
     } else {
       setFiles(normalizeMobileCameraOrder(incomingFiles));
     }
@@ -187,20 +192,8 @@ export default function ImageToPdf() {
     });
   };
 
-  // Remove by exact array index to prevent object-reference bugs and handle identical duplicate files
   const removeFileAtIndex = (indexToRemove: number) => {
-    setFiles((prev) => {
-      const target = prev[indexToRemove];
-      if (target) {
-        const previewUrl = previews.get(target);
-        if (previewUrl) URL.revokeObjectURL(previewUrl);
-      }
-      return prev.filter((_, idx) => idx !== indexToRemove);
-    });
-
-    if (addMoreRef.current) {
-      addMoreRef.current.value = "";
-    }
+    setFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
   const run = async () => {
