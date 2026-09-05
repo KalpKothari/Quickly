@@ -14,7 +14,6 @@ import {
   Smartphone,
   Users, Clipboard,
   Target, Keyboard,
-  Scan, 
 } from "lucide-react";
 
 export type CategoryId =
@@ -70,8 +69,7 @@ export const TOOLS: Tool[] = [
   { slug: "pdf-to-ppt", name: "PDF to PowerPoint", description: "Convert PDF slides into editable PPTX.", category: "pdf", icon: Presentation, status: "soon" },
   { slug: "ppt-to-pdf", name: "PowerPoint to PDF", description: "Convert PPTX presentations to PDF.", category: "pdf", icon: Presentation, status: "soon" },
   { slug: "compare-pdfs", name: "Compare Two PDFs", description: "Visual side-by-side PDF comparison.", category: "pdf", icon: GitCompare, status: "live" },
-  { slug: "document-scanner-cleaner", name: "Document Scanner Cleaner", description: "Clean and enhance scanned documents.", category: "pdf", icon: Scan, status: "live" },
-
+  
   // Image
   { slug: "compress-image", name: "Compress Image", description: "Reduce image size without visible loss.", category: "image", icon: FileArchive, status: "live", popular: true, featured: true },
   { slug: "convert-image", name: "Image Converter", description: "Convert PNG, JPG, WEBP formats.", category: "image", icon: Repeat, status: "live", popular: true, keywords: ["png", "jpg", "webp"] },
