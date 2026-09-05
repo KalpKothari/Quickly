@@ -20,43 +20,6 @@ type ProcessedImage = {
   mime: "image/jpeg" | "image/png";
 };
 
-// Detects if a batch of files arrived in reverse-chronological order (common
-// when mobile pickers select "recents" or burst/consecutive camera captures
-// newest-first) and normalizes them to capture order (oldest -> newest).
-function normalizeMobileCameraOrder(incomingFiles: File[]): File[] {
-  if (incomingFiles.length < 2) return incomingFiles;
-
-  // Check lastModified timestamps
-  const timestamps = incomingFiles.map((f) => f.lastModified);
-  const isStrictlyDecreasingTime = timestamps.every(
-    (t, i) => i === 0 || t < timestamps[i - 1]
-  );
-
-  // If the batch of photos has strictly decreasing modification timestamps,
-  // the device delivered newest-first (reverse capture order).
-  if (isStrictlyDecreasingTime) {
-    return [...incomingFiles].reverse();
-  }
-
-  // Fallback check: Camera naming conventions (IMG_..., PXL_..., etc.) where
-  // filenames sort strictly in descending order while captured in a single session.
-  const names = incomingFiles.map((f) => f.name.toLowerCase());
-  const isCameraPattern = names.every((n) =>
-    /^(img_|pxl_|photo_|dsc_|image_|\d{8}_\d{6})/.test(n)
-  );
-
-  if (isCameraPattern) {
-    const isStrictlyDecreasingNames = names.every(
-      (n, i) => i === 0 || n.localeCompare(names[i - 1], undefined, { numeric: true }) < 0
-    );
-    if (isStrictlyDecreasingNames) {
-      return [...incomingFiles].reverse();
-    }
-  }
-
-  return incomingFiles;
-}
-
 // Decodes the file with EXIF orientation applied (so it matches how it looks
 // when you open it normally), bakes in any extra user-requested rotation,
 // downsizes oversized originals, and re-encodes as JPEG (or PNG, to keep
@@ -120,17 +83,20 @@ export default function ImageToPdf() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
 
-  const handleFilesChange = (newFiles: File[]) => {
-    setFiles(normalizeMobileCameraOrder(newFiles));
-  };
-
   const previewsRef = useRef(previews);
   useEffect(() => {
     previewsRef.current = previews;
   }, [previews]);
 
+  // Handle incoming files directly from the input/drop event.
+  // Preserves incoming selection order without sorting, reversing,
+  // or checking timestamps/names/metadata.
+  const handleFilesChange = (incomingFiles: File[]) => {
+    setFiles(incomingFiles);
+  };
+
   // Rotations always tracked (even with preview off) so a rotation set
-  // before toggling preview off isn't lost.
+  // before toggling preview off isn't lost. Retains file object identity.
   useEffect(() => {
     setRotations((prev) => {
       const next = new Map<File, number>();
@@ -139,8 +105,8 @@ export default function ImageToPdf() {
     });
   }, [files]);
 
-  // Preview object URLs are only created while preview is enabled, and
-  // released immediately when it's turned off or files change.
+  // Preview object URLs are created in exact array order and released
+  // when removed or disabled.
   useEffect(() => {
     if (!previewEnabled) {
       setPreviews((prev) => {
@@ -187,9 +153,9 @@ export default function ImageToPdf() {
     setProgress({ done: 0, total: files.length });
     try {
       const doc = await PDFDocument.create();
-      // Strictly sequential and in array order: this is what guarantees the
-      // PDF page order matches the exact order files arrived in, and it also
-      // keeps memory flat (never more than one decoded image in memory).
+
+      // Sequential iteration strictly adhering to the files state array index.
+      // Index 0 in state = Page 1 in PDF, Index n = Page n + 1 in PDF.
       for (const f of files) {
         const rotationDeg = rotations.get(f) ?? 0;
         const { bytes, width, height, mime } = await normalizeRotateAndCompress(f, rotationDeg);
@@ -202,7 +168,6 @@ export default function ImageToPdf() {
       downloadBlob(new Blob([pdf as BlobPart], { type: "application/pdf" }), "images.pdf");
       toast.success("PDF created");
 
-      // Trigger support prompt popup immediately following file download completion
       showSupportPrompt();
     } catch {
       toast.error("Only PNG or JPG images supported");
@@ -218,7 +183,7 @@ export default function ImageToPdf() {
         multiple
         files={files}
         onFiles={handleFilesChange}
-        hint="Add PNG/JPG images (order = drop order)"
+        hint="Add PNG/JPG images (order = selection order)"
       />
 
       {files.length > 0 && (
