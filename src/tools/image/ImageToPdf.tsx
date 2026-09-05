@@ -115,8 +115,6 @@ export default function ImageToPdf() {
     previewsRef.current = previews;
   }, [previews]);
 
-  // When in selection mode, selecting via FileDrop takes only the first file
-  // and appends it to existing files instead of overwriting.
   const handleFilesChange = (incomingFiles: File[]) => {
     if (orderMode === "selection") {
       const single = incomingFiles.slice(0, 1);
@@ -189,8 +187,20 @@ export default function ImageToPdf() {
     });
   };
 
-  const removeFile = (file: File) => {
-    setFiles((prev) => prev.filter((f) => f !== file));
+  // Remove by exact array index to prevent object-reference bugs and handle identical duplicate files
+  const removeFileAtIndex = (indexToRemove: number) => {
+    setFiles((prev) => {
+      const target = prev[indexToRemove];
+      if (target) {
+        const previewUrl = previews.get(target);
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+      }
+      return prev.filter((_, idx) => idx !== indexToRemove);
+    });
+
+    if (addMoreRef.current) {
+      addMoreRef.current.value = "";
+    }
   };
 
   const run = async () => {
@@ -324,22 +334,23 @@ export default function ImageToPdf() {
             const previewUrl = previews.get(f);
             return (
               <div
-                key={`${f.name}-${i}`}
+                key={`${f.name}-${f.lastModified}-${i}`}
                 className="relative flex flex-col gap-2 rounded-xl border-2 border-foreground bg-background p-2 shadow-[3px_3px_0_0_var(--color-foreground)]"
               >
                 <span
                   aria-hidden
-                  className="absolute -left-2 -top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 border-foreground bg-background text-xs font-bold"
+                  className="absolute -left-2 -top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 border-foreground bg-background text-xs font-bold pointer-events-none"
                 >
                   {i + 1}
                 </span>
+
                 <button
                   type="button"
-                  onClick={() => removeFile(f)}
+                  onClick={() => removeFileAtIndex(i)}
                   aria-label="Remove image"
-                  className="absolute -right-2 -top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 border-foreground bg-background hover:opacity-90"
+                  className="absolute -right-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-foreground bg-background hover:bg-muted hover:opacity-90 cursor-pointer"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-3 w-3 pointer-events-none" />
                 </button>
 
                 <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border-2 border-foreground bg-muted">
