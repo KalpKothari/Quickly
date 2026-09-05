@@ -20,6 +20,43 @@ type ProcessedImage = {
   mime: "image/jpeg" | "image/png";
 };
 
+// Detects if a batch of files arrived in reverse-chronological order (common
+// when mobile pickers select "recents" or burst/consecutive camera captures
+// newest-first) and normalizes them to capture order (oldest -> newest).
+function normalizeMobileCameraOrder(incomingFiles: File[]): File[] {
+  if (incomingFiles.length < 2) return incomingFiles;
+
+  // Check lastModified timestamps
+  const timestamps = incomingFiles.map((f) => f.lastModified);
+  const isStrictlyDecreasingTime = timestamps.every(
+    (t, i) => i === 0 || t < timestamps[i - 1]
+  );
+
+  // If the batch of photos has strictly decreasing modification timestamps,
+  // the device delivered newest-first (reverse capture order).
+  if (isStrictlyDecreasingTime) {
+    return [...incomingFiles].reverse();
+  }
+
+  // Fallback check: Camera naming conventions (IMG_..., PXL_..., etc.) where
+  // filenames sort strictly in descending order while captured in a single session.
+  const names = incomingFiles.map((f) => f.name.toLowerCase());
+  const isCameraPattern = names.every((n) =>
+    /^(img_|pxl_|photo_|dsc_|image_|\d{8}_\d{6})/.test(n)
+  );
+
+  if (isCameraPattern) {
+    const isStrictlyDecreasingNames = names.every(
+      (n, i) => i === 0 || n.localeCompare(names[i - 1], undefined, { numeric: true }) < 0
+    );
+    if (isStrictlyDecreasingNames) {
+      return [...incomingFiles].reverse();
+    }
+  }
+
+  return incomingFiles;
+}
+
 // Decodes the file with EXIF orientation applied (so it matches how it looks
 // when you open it normally), bakes in any extra user-requested rotation,
 // downsizes oversized originals, and re-encodes as JPEG (or PNG, to keep
@@ -82,6 +119,10 @@ export default function ImageToPdf() {
   const [previewEnabled, setPreviewEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
+
+  const handleFilesChange = (newFiles: File[]) => {
+    setFiles(normalizeMobileCameraOrder(newFiles));
+  };
 
   const previewsRef = useRef(previews);
   useEffect(() => {
@@ -172,7 +213,13 @@ export default function ImageToPdf() {
 
   return (
     <div className="space-y-6">
-      <FileDrop accept="image/png,image/jpeg" multiple files={files} onFiles={setFiles} hint="Add PNG/JPG images (order = drop order)" />
+      <FileDrop
+        accept="image/png,image/jpeg"
+        multiple
+        files={files}
+        onFiles={handleFilesChange}
+        hint="Add PNG/JPG images (order = drop order)"
+      />
 
       {files.length > 0 && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
