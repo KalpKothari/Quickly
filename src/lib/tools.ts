@@ -13,7 +13,8 @@ import {
   Wallet, Banknote, Shuffle,
   Smartphone,
   Users, Clipboard,
-  Target, Keyboard, Scale, 
+  Target, Keyboard,
+  Scan, 
 } from "lucide-react";
 
 export type CategoryId =
@@ -69,6 +70,7 @@ export const TOOLS: Tool[] = [
   { slug: "pdf-to-ppt", name: "PDF to PowerPoint", description: "Convert PDF slides into editable PPTX.", category: "pdf", icon: Presentation, status: "soon" },
   { slug: "ppt-to-pdf", name: "PowerPoint to PDF", description: "Convert PPTX presentations to PDF.", category: "pdf", icon: Presentation, status: "soon" },
   { slug: "compare-pdfs", name: "Compare Two PDFs", description: "Visual side-by-side PDF comparison.", category: "pdf", icon: GitCompare, status: "live" },
+  { slug: "document-scanner-cleaner", name: "Document Scanner Cleaner", description: "Clean and enhance scanned documents.", category: "pdf", icon: Scan, status: "live" },
 
   // Image
   { slug: "compress-image", name: "Compress Image", description: "Reduce image size without visible loss.", category: "image", icon: FileArchive, status: "live", popular: true, featured: true },
@@ -130,8 +132,7 @@ export const TOOLS: Tool[] = [
   { slug: "randomizer", name: "Randomizer", description: "Create random orders, groups, and selections instantly.", category: "utility", icon: Shuffle, status: "live" },
   { slug: "qr-scanner", name: "QR Code Scanner", description: "Scan QR codes using your device camera.", category: "utility", icon: QrCode, status: "live" },
   { slug: "streak-tracker", name: "Streak Tracker", description: "Track your daily habits and build consistency.", category: "utility", icon: Target, status: "live" },
-  { slug: "smart-shopping-comparator", name: "Smart Shopping Comparator", description: "Compare prices and features of products across different retailers.", category: "utility", icon: Scale, status: "live" },
-
+  
   //Device
    { slug: "phone-transfer", name: "Phone Transfer", description: "Direct P2P cross-platform file transfer without app installation.", category: "device", icon: Smartphone, status: "live", popular: true, featured: true, keywords: ["airdrop", "p2p", "share", "quick share", "nearby share", "file transfer"] },
    { slug: "chat", name: "Chat Quickly", description: "Direct P2P cross-platform chat without app installation.", category: "device", icon: Users, status: "live", popular: true, featured: true, keywords: ["airdrop", "p2p", "share", "quick share", "nearby share", "file transfer"] },

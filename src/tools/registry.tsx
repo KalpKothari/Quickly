@@ -13,6 +13,7 @@ const ProtectPdf = lazy(() => import("./pdf/ProtectPdf"));
 const SignPdf = lazy(() => import("./pdf/SignPdf"));
 const ComparePdfs = lazy(() => import("./pdf/ComparePdfs"));
 const PdfCompress = lazy(() => import("./pdf/PdfCompress"));
+const DocumentScannerCleaner = lazy(() => import("./pdf/DocumentScannerCleaner"));
 
 
 // Image
@@ -55,7 +56,6 @@ const SpinTheWheel = lazy(() => import("./utility/SpinTheWheel"));
 const Randomizer = lazy(() => import("./utility/Randomizer"));
 const QrScanner = lazy(() => import("./utility/QrScanner"));
 const StreakTracker = lazy(() => import("./utility/StreakTracker"));
-const SmartShoppingComparator = lazy(() => import("./utility/SmartShoppingComparator"));
 
 // Device
 const PhoneTransfer = lazy(() => import("./device/PhoneTransfer"));
@@ -80,7 +80,7 @@ export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
   "sign-pdf": SignPdf,
   "compare-pdfs": ComparePdfs,
   "pdf-compress": PdfCompress,
- 
+  "document-scanner-cleaner": DocumentScannerCleaner,
 
   "compress-image": CompressImage,
   "convert-image": ConvertImage,
@@ -116,7 +116,6 @@ export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
   "timezone-converter": TimezoneConverter,
   "url-shortener": UrlShortener,
   "date-difference": DateDifference,
-  "smart-shopping-comparator": SmartShoppingComparator,
 
   "spin-the-wheel": SpinTheWheel,
   "randomizer": Randomizer,
