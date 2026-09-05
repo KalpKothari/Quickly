@@ -7,33 +7,14 @@ import { downloadBlob } from "@/lib/format";
 import { useSupportPrompt } from "@/hooks/useSupportPrompt";
 
 // --- Tunables for PDF size optimization ---------------------------------
-// Because pages are sized 1 image-pixel = 1 PDF point, any pixel above this
-// cap on the longer edge is pure bloat (it can never render at higher than
-// ~72 "DPI" given that page-sizing convention) - so we cap it before encoding.
 const MAX_DIMENSION = 2000;
 const JPEG_QUALITY = 0.82;
 
-// -----------------------------------------------------------------------
-// PHOTO DATE ORDERING — only used when the user selects "Arrange by Photo Date".
-// Detects when a mobile OS gallery returns files in reverse-chronological order
-// and corrects it to oldest-first (i.e. actual capture sequence).
-//
-// Strategy:
-//   1. If lastModified values are non-increasing with at least one strict decrease
-//      → the OS returned files newest-first; reverse to get oldest-first.
-//   2. Fallback for burst/same-second captures (identical ms timestamps):
-//      Inspect camera filename patterns. If names are strictly decreasing
-//      (e.g. IMG_0004 → IMG_0003 → IMG_0002) → reverse.
-//   3. Otherwise → return as-is (already oldest-first or indeterminate).
-//
-// This function is NEVER called when orderMode === "selection".
-// -----------------------------------------------------------------------
 function normalizeMobileCameraOrder(incomingFiles: File[]): File[] {
   if (incomingFiles.length < 2) return incomingFiles;
 
   const timestamps = incomingFiles.map((f) => f.lastModified);
 
-  // 1. lastModified in milliseconds — distinct even for photos 1–5 s apart.
   const isNonIncreasingTime = timestamps.every(
     (t, i) => i === 0 || t <= timestamps[i - 1]
   );
@@ -45,15 +26,12 @@ function normalizeMobileCameraOrder(incomingFiles: File[]): File[] {
     return [...incomingFiles].reverse();
   }
 
-  // 2. Fallback: burst or same-second captures with clamped/identical timestamps.
-  //    Match common camera filename prefixes (iOS IMG_, Pixel PXL_, Android date-pattern, etc.)
   const names = incomingFiles.map((f) => f.name.toLowerCase());
   const isCameraPattern = names.every((n) =>
     /^(img_|pxl_|photo_|dsc_|image_|\d{8}_\d{6})/.test(n)
   );
 
   if (isCameraPattern) {
-    // Natural numeric comparison handles IMG_9 vs IMG_10 correctly.
     const isStrictlyDecreasingNames = names.every(
       (n, i) =>
         i === 0 ||
@@ -74,11 +52,6 @@ type ProcessedImage = {
   mime: "image/jpeg" | "image/png";
 };
 
-// Decodes the file with EXIF orientation applied (so it matches how it looks
-// when you open it normally), bakes in any extra user-requested rotation,
-// downsizes oversized originals, and re-encodes as JPEG (or PNG, to keep
-// transparency) so the embedded image is as small as it can be without
-// visibly hurting quality.
 async function normalizeRotateAndCompress(
   file: File,
   extraRotationDeg: number
@@ -89,7 +62,6 @@ async function normalizeRotateAndCompress(
   const rotatedWidth = swap ? bitmap.height : bitmap.width;
   const rotatedHeight = swap ? bitmap.width : bitmap.height;
 
-  // Only ever scale down, never up - and skip entirely if already small enough.
   const scale = Math.min(1, MAX_DIMENSION / Math.max(rotatedWidth, rotatedHeight));
   const outWidth = Math.max(1, Math.round(rotatedWidth * scale));
   const outHeight = Math.max(1, Math.round(rotatedHeight * scale));
@@ -110,7 +82,6 @@ async function normalizeRotateAndCompress(
   ctx.drawImage(bitmap, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
   bitmap.close();
 
-  // Keep PNGs as PNG (transparency-safe); everything else becomes JPEG for size.
   const mime: ProcessedImage["mime"] = file.type === "image/png" ? "image/png" : "image/jpeg";
   const blob: Blob = await new Promise((resolve, reject) =>
     canvas.toBlob(
@@ -120,7 +91,6 @@ async function normalizeRotateAndCompress(
     )
   );
 
-  // Drop the canvas backing store immediately, don't wait for GC.
   canvas.width = 0;
   canvas.height = 0;
 
@@ -136,80 +106,45 @@ export default function ImageToPdf() {
   const [previewEnabled, setPreviewEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
-  // "selection" = keep exact selection/batch order (default, no sorting applied)
-  // "photoDate" = apply normalizeMobileCameraOrder to correct gallery reverse-order
   const [orderMode, setOrderMode] = useState<"selection" | "photoDate">("selection");
 
-  // Ref to a hidden <input> used exclusively for the "Add more photos" button.
-  // Each click opens the picker; whatever the browser returns is appended
-  // to the existing list in the exact FileList order — no sorting applied.
   const addMoreRef = useRef<HTMLInputElement>(null);
-
   const previewsRef = useRef(previews);
+
   useEffect(() => {
     previewsRef.current = previews;
   }, [previews]);
 
-  // -----------------------------------------------------------------------
-  // ORDERING CONTRACT
-  // -----------------------------------------------------------------------
-  // On mobile, <input type="file" multiple> returns a FileList whose order
-  // is determined by the OS gallery, NOT by the user's tap sequence.
-  // There is no standard API that exposes the actual tap order from a single
-  // multi-select session.
-  //
-  // The only reliable strategy is batch selection:
-  //   • First batch  → becomes pages 1…N   (in FileList order for that batch)
-  //   • Second batch → appended as pages N+1… (in FileList order for that batch)
-  //   • etc.
-  //
-  // Each batch is appended to the existing array WITHOUT any sorting,
-  // reversing, or timestamp comparison. The user controls the final order
-  // by choosing which photos to add in which batch.
-  //
-  // Previously selected images are NEVER reordered automatically.
-  // -----------------------------------------------------------------------
-
-  // Called by FileDrop for the very first selection (drag-drop or initial pick).
-  // In "selection" mode: set files exactly as received — no sorting, no reversing.
-  // In "photoDate" mode: run normalizeMobileCameraOrder to correct gallery order.
+  // When in selection mode, selecting via FileDrop takes only the first file
+  // and appends it to existing files instead of overwriting.
   const handleFilesChange = (incomingFiles: File[]) => {
-    const ordered =
-      orderMode === "photoDate"
-        ? normalizeMobileCameraOrder(incomingFiles)
-        : incomingFiles;
-    setFiles(ordered);
+    if (orderMode === "selection") {
+      const single = incomingFiles.slice(0, 1);
+      setFiles((prev) => [...prev, ...single]);
+    } else {
+      setFiles(normalizeMobileCameraOrder(incomingFiles));
+    }
   };
 
-  // Called by the hidden "add more" input on subsequent picks.
-  // Appends the new batch to the end of the existing list, no sorting.
   const handleAddMore = (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = e.target.files;
     if (!picked || picked.length === 0) return;
 
-    // Spread FileList into a plain array in native FileList index order.
     const newBatch: File[] = [];
-    for (let i = 0; i < picked.length; i++) {
+    const limit = orderMode === "selection" ? 1 : picked.length;
+    for (let i = 0; i < limit; i++) {
       newBatch.push(picked[i]);
     }
 
-    // In "photoDate" mode: normalize each incoming batch independently so
-    // that gallery-reversed batches are corrected before appending.
-    // In "selection" mode: append as-is — no sorting of any kind.
     const orderedBatch =
       orderMode === "photoDate"
         ? normalizeMobileCameraOrder(newBatch)
         : newBatch;
 
     setFiles((prev) => [...prev, ...orderedBatch]);
-
-    // Reset the input so the same file(s) can be re-selected in a future batch
-    // without the browser ignoring the change event.
     e.target.value = "";
   };
 
-  // Rotations always tracked (even with preview off) so a rotation set
-  // before toggling preview off isn't lost. Retains file object identity.
   useEffect(() => {
     setRotations((prev) => {
       const next = new Map<File, number>();
@@ -218,8 +153,6 @@ export default function ImageToPdf() {
     });
   }, [files]);
 
-  // Preview object URLs are created in exact array order and released
-  // when removed or disabled.
   useEffect(() => {
     if (!previewEnabled) {
       setPreviews((prev) => {
@@ -267,8 +200,6 @@ export default function ImageToPdf() {
     try {
       const doc = await PDFDocument.create();
 
-      // Sequential iteration strictly adhering to the files state array index.
-      // Index 0 in state = Page 1 in PDF, Index n = Page n + 1 in PDF.
       for (const f of files) {
         const rotationDeg = rotations.get(f) ?? 0;
         const { bytes, width, height, mime } = await normalizeRotateAndCompress(f, rotationDeg);
@@ -291,7 +222,6 @@ export default function ImageToPdf() {
 
   return (
     <div className="space-y-6">
-      {/* Photo Order Setting — visible before and after file selection */}
       <fieldset className="rounded-xl border-2 border-foreground bg-background p-4 shadow-[3px_3px_0_0_var(--color-foreground)]">
         <legend className="px-1 text-sm font-bold">How should we arrange your photos?</legend>
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:gap-6">
@@ -307,7 +237,7 @@ export default function ImageToPdf() {
             <span className="flex flex-col gap-0.5">
               <span className="text-sm font-semibold">Keep Selection Order</span>
               <span className="text-xs text-muted-foreground">
-                Use the order your photos are selected and added.
+                Add photos one at a time to preserve exact sequence.
               </span>
             </span>
           </label>
@@ -323,7 +253,7 @@ export default function ImageToPdf() {
             <span className="flex flex-col gap-0.5">
               <span className="text-sm font-semibold">Arrange by Photo Date</span>
               <span className="text-xs text-muted-foreground">
-                Arrange photos based on when they were taken.
+                Select multiple photos at once; arranged by capture date.
               </span>
             </span>
           </label>
@@ -332,13 +262,13 @@ export default function ImageToPdf() {
 
       <FileDrop
         accept="image/png,image/jpeg"
-        multiple
+        multiple={orderMode === "photoDate"}
         files={files}
         onFiles={handleFilesChange}
         hint={
           orderMode === "photoDate"
             ? "Add PNG/JPG images — photos will be arranged by capture date"
-            : "Add PNG/JPG images — select photos one batch at a time to control page order"
+            : "Add PNG/JPG image — select one photo at a time to maintain page order"
         }
       />
 
@@ -354,12 +284,11 @@ export default function ImageToPdf() {
             Preview your PDF
           </label>
 
-          {/* Hidden input for appending additional batches without reordering existing files */}
           <input
             ref={addMoreRef}
             type="file"
             accept="image/png,image/jpeg"
-            multiple
+            multiple={orderMode === "photoDate"}
             className="sr-only"
             onChange={handleAddMore}
             aria-hidden
@@ -373,7 +302,7 @@ export default function ImageToPdf() {
             className="inline-flex items-center gap-2 rounded-xl border-2 border-foreground bg-background px-5 py-2.5 text-sm font-semibold hover:opacity-90 disabled:opacity-50 shadow-[3px_3px_0_0_var(--color-foreground)]"
           >
             <Plus className="h-4 w-4" />
-            Add more photos
+            {orderMode === "selection" ? "Add photo" : "Add more photos"}
           </button>
 
           <button
