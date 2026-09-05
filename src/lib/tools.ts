@@ -110,6 +110,7 @@ export const TOOLS: Tool[] = [
   { slug: "attendance-calculator", name: "Attendance Calculator", description: "Track attendance and see bunkable classes.", category: "student", icon: CalendarCheck, status: "live", popular: true, featured: true },
   { slug: "cgpa-calculator", name: "CGPA Calculator", description: "Compute CGPA & convert to percentage.", category: "student", icon: Award, status: "live", popular: true },
   { slug: "percentage-calculator-student", name: "Marks Percentage", description: "Calculate percentage across multiple subjects.", category: "student", icon: Percent, status: "live" },
+  {slug: "csv-excel-analyzer", name: "CSV / Excel Analyzer", description: "Analyze CSV and Excel files for insights.", category: "student", icon: FileText, status: "live"},
   
   // Finance
   { slug: "emi-calculator", name: "EMI Calculator", description: "Indian-standard EMI with amortization.", category: "finance", icon: Calculator, status: "live", popular: true, featured: true },

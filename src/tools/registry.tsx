@@ -42,6 +42,7 @@ const TypingBattle = lazy(() => import("./text/TypingBattle"));
 const CGPA = lazy(() => import("./student/CGPA"));
 const MarksPercentage = lazy(() => import("./student/MarksPercentage"));
 const Attendance = lazy(() => import("./student/Attendance"));
+const CsvExcelAnalyzer = lazy(() => import("./student/CsvExcelAnalyzer"));
 
 // Utility
 const UnitConverter = lazy(() => import("./utility/UnitConverter"));
@@ -102,7 +103,7 @@ export const TOOL_COMPONENTS: Record<string, ToolComponent> = {
   "cgpa-calculator": CGPA,
   "percentage-calculator-student": MarksPercentage,
   "attendance-calculator": Attendance,
-  
+  "csv-excel-analyzer": CsvExcelAnalyzer,
 
   "unit-converter": UnitConverter,
   "currency-converter": CurrencyConverter,

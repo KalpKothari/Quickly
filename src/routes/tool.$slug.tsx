@@ -56,7 +56,7 @@ function NotFoundTool() {
       <h1 className="mt-6 font-display text-3xl font-bold">Tool not found</h1>
       <p className="mt-2 text-muted-foreground">
         Try the search (press{" "}
-        <kbd className="rounded border-2 border-foreground bg-card px-1.5 py-0.5 text-xs font-bold">⌘K</kbd>) to find what you need.
+        <kbd className="rounded border-2 border-foreground bg-card px-1.5 py-0.5 text-xs font-bold">Alt+ K</kbd>) to find what you need.
       </p>
     </div>
   );
