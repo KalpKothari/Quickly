@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
 // NOTE: Run `npm i xlsx-js-style` for native Excel colors with zero warnings.
-// If you still have `xlsx` installed, change this import to `import * as XLSX from "xlsx-js-style";`
 import * as XLSX from "xlsx-js-style";
 import { toast } from "sonner";
 import {
@@ -40,6 +39,7 @@ import {
   TrendingUp,
   ArrowRight,
   ShieldAlert,
+  Fingerprint,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -131,16 +131,24 @@ interface SortConfig {
 type ChartType = "bar" | "line" | "pie" | "scatter" | "histogram";
 type Aggregation = "sum" | "avg" | "count";
 
-type InsightCategory = "all" | "health" | "peaks" | "categories" | "timeline";
+type InsightCategory = "all" | "health" | "patterns" | "peaks" | "categories" | "timeline";
 
 interface FormattedInsight {
   id: string;
-  category: "health" | "peaks" | "categories" | "timeline";
+  category: "health" | "patterns" | "peaks" | "categories" | "timeline";
   title: string;
   description: string;
   metric?: string;
   subMetric?: string;
-  action?: { label: string; tab: TabId };
+  action?: { label: string; onClick: () => void };
+}
+
+interface PatternAnomaly {
+  rowGlobalIndex: number;
+  column: string;
+  value: CellValue;
+  expectedPattern: string;
+  actualPattern: string;
 }
 
 type TabId = "dashboard" | "explorer" | "statistics" | "insights" | "charts" | "clean";
@@ -194,6 +202,116 @@ function formatBytes(bytes: number): string {
   const kb = bytes / 1024;
   if (kb < 1024) return `${kb.toFixed(1)} KB`;
   return `${(kb / 1024).toFixed(1)} MB`;
+}
+
+// --- Structural Pattern DNA Mining -----------------------------------------
+function getStructuralPattern(val: CellValue): string {
+  if (isEmptyValue(val)) return "[EMPTY]";
+  const s = String(val).trim();
+
+  // 1. Standard / ISO Dates
+  if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(s)) return "[DATE_ISO]";
+  if (/^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$/.test(s)) return "[DATE_STD]";
+
+  // 2. Email Address Pattern
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) return "[EMAIL]";
+
+  // 3. Pure Numeric (both integers and decimals share a single numeric signature)
+  const cleaned = s.replace(/[$€£¥₹,%]/g, "").trim();
+  if (cleaned !== "" && !isNaN(Number(cleaned))) {
+    return "[NUMERIC]";
+  }
+
+  // 4. Code / SKU Structure (e.g. STU-10001, TX-9923)
+  const codeMatch = s.match(/^([A-Za-z]+)[-_/](\d+)$/);
+  if (codeMatch) {
+    return `[CODE_${codeMatch[1].toUpperCase()}]`;
+  }
+
+  // 5. Natural Text / Multi-word text (all regular words share a single text signature)
+  const words = s.split(/\s+/);
+  if (words.length > 0 && words.every((w) => /^[A-Za-z.'-]+$/.test(w))) {
+    return "[TEXT_WORDS]";
+  }
+
+  // 6. Mixed Pattern / Fallback
+  return "[MIXED_PATTERN]";
+}
+
+// Convert internal token into natural, easy-to-understand English
+function humanizePatternName(pattern: string, sampleExample?: string): string {
+  if (pattern === "[EMAIL]") return "valid email address";
+  if (pattern.startsWith("[CODE_")) {
+    const prefix = pattern.replace("[CODE_", "").replace("]", "");
+    return `standard ID code starting with '${prefix}-'`;
+  }
+  if (pattern === "[DATE_ISO]" || pattern === "[DATE_STD]") return "standard date";
+  if (pattern === "[NUMERIC]") return "numeric value";
+  if (pattern === "[TEXT_WORDS]") return "text description";
+  return sampleExample ? `standard format (like '${sampleExample}')` : "standard format";
+}
+
+function detectColumnPatternBreakers(
+  headers: string[],
+  rows: Row[]
+): {
+  anomalies: PatternAnomaly[];
+  dominantPatterns: Map<string, { pattern: string; count: number; pct: number; sample: string }>;
+} {
+  const anomalies: PatternAnomaly[] = [];
+  const dominantPatterns = new Map<string, { pattern: string; count: number; pct: number; sample: string }>();
+
+  for (const h of headers) {
+    const patterns = rows.map((r) => getStructuralPattern(r[h]));
+    const counts = new Map<string, number>();
+
+    for (const p of patterns) {
+      if (p !== "[EMPTY]") {
+        counts.set(p, (counts.get(p) ?? 0) + 1);
+      }
+    }
+
+    if (counts.size <= 1) continue;
+
+    let dominant = "";
+    let maxCount = 0;
+    for (const [p, count] of counts.entries()) {
+      if (count > maxCount) {
+        maxCount = count;
+        dominant = p;
+      }
+    }
+
+    const totalNonEmpty = rows.filter((r) => !isEmptyValue(r[h])).length;
+    const pct = totalNonEmpty > 0 ? Math.round((maxCount / totalNonEmpty) * 100) : 0;
+
+    // Strict threshold: a pattern must dominate at least 75% of non-empty records
+    if (dominant && pct >= 75) {
+      // Find a sample value that follows the dominant pattern
+      const sampleRow = rows.find((r) => getStructuralPattern(r[h]) === dominant);
+      const sample = sampleRow ? String(sampleRow[h]) : "";
+
+      dominantPatterns.set(h, { pattern: dominant, count: maxCount, pct, sample });
+
+      rows.forEach((r, rIdx) => {
+        const val = r[h];
+        if (isEmptyValue(val)) return;
+
+        const currentP = getStructuralPattern(val);
+        if (currentP !== dominant) {
+          anomalies.push({
+            rowGlobalIndex: rIdx,
+            column: h,
+            value: val,
+            expectedPattern: dominant,
+            actualPattern: currentP,
+          });
+        }
+      });
+    }
+  }
+
+  return { anomalies, dominantPatterns };
 }
 
 function detectColumnType(values: CellValue[]): ColumnType {
@@ -398,7 +516,10 @@ export default function CsvExcelAnalyzer() {
   const [highlightIssues, setHighlightIssues] = useState(true);
   const [rawView, setRawView] = useState(false);
 
-  // Statistics filter
+  // Dedicated Active Anomaly Filter (Used when jumping from Insights)
+  const [activeAnomalyCol, setActiveAnomalyCol] = useState<string | null>(null);
+
+  // Statistics sub-filter
   const [statsTypeFilter, setStatsTypeFilter] = useState<"all" | "number" | "text" | "date">("all");
   const [statsSearch, setStatsSearch] = useState("");
 
@@ -424,6 +545,7 @@ export default function CsvExcelAnalyzer() {
       setTypeOverrides(new Map());
       setFilters([]);
       setSearch("");
+      setActiveAnomalyCol(null);
       setSortConfig({ column: null, direction: null });
       setHiddenColumns(new Set());
       setColumnWidths(new Map());
@@ -451,6 +573,7 @@ export default function CsvExcelAnalyzer() {
     setActiveTab("dashboard");
     setSearch("");
     setFilters([]);
+    setActiveAnomalyCol(null);
     setSortConfig({ column: null, direction: null });
     setHiddenColumns(new Set());
   };
@@ -557,7 +680,7 @@ export default function CsvExcelAnalyzer() {
     }
   };
 
-  // Derived Column Info & Duplicate Hash
+  // Derived Info & Exact Duplicate Content Hash
   const columnInfo = useMemo<ColumnInfo[]>(() => {
     const base = buildColumnInfo(headers, rows);
     return base.map((c) => (typeOverrides.has(c.name) ? { ...c, type: typeOverrides.get(c.name)! } : c));
@@ -580,6 +703,19 @@ export default function CsvExcelAnalyzer() {
     }
     return { duplicateRowKeys: dupKeys, redundantCount: redundant };
   }, [rows, headers]);
+
+  // Pattern Breakers detection
+  const { anomalies: patternAnomalies, dominantPatterns } = useMemo(() => {
+    return detectColumnPatternBreakers(headers, rows);
+  }, [headers, rows]);
+
+  const patternAnomalySet = useMemo(() => {
+    const s = new Set<string>();
+    for (const a of patternAnomalies) {
+      s.add(`${a.rowGlobalIndex}:${a.column}`);
+    }
+    return s;
+  }, [patternAnomalies]);
 
   const dashboardStats = useMemo(() => {
     const totalRows = rows.length;
@@ -618,13 +754,22 @@ export default function CsvExcelAnalyzer() {
     return map;
   }, [rows, columnInfo]);
 
-  // Modular Insights
+  // Jump to Explorer & show exclusively anomalous rows
+  const handleInspectAnomalyInTable = (columnName: string) => {
+    setActiveAnomalyCol(columnName);
+    setPage(1);
+    setActiveTab("explorer");
+    toast.info(`Filtered table to rows with format issues in "${columnName}"`);
+  };
+
+  // Structured, High-Value Insights (Easy to understand, plain English)
   const structuredInsights = useMemo<FormattedInsight[]>(() => {
     const list: FormattedInsight[] = [];
     const numericCols = columnInfo.filter((c) => c.type === "number");
     const textCols = columnInfo.filter((c) => c.type === "text");
     const dateCols = columnInfo.filter((c) => c.type === "date");
 
+    // 1. Data Health & Actionable Issues
     if (redundantCount > 0) {
       list.push({
         id: "health-dupes",
@@ -632,7 +777,7 @@ export default function CsvExcelAnalyzer() {
         title: "Duplicate Records Found",
         description: `There are ${redundantCount} identical duplicate rows. You can prune these to keep the counts clean.`,
         metric: `${redundantCount} rows`,
-        action: { label: "Clean in Clean Tab", tab: "clean" },
+        action: { label: "Clean in Clean Tab", onClick: () => setActiveTab("clean") },
       });
     }
 
@@ -646,12 +791,39 @@ export default function CsvExcelAnalyzer() {
             title: `High Missing Data in "${c.name}"`,
             description: `${c.missing} cells (${pct}% of the column) are blank. Consider filling with mean/mode or dropping empty rows.`,
             metric: `${c.missing} blanks`,
-            action: { label: "Fix Values", tab: "clean" },
+            action: { label: "Fix Values", onClick: () => setActiveTab("clean") },
           });
         }
       }
     }
 
+    // 2. Structural Pattern Breakers (Human-friendly explanations)
+    const anomaliesByCol = new Map<string, PatternAnomaly[]>();
+    for (const a of patternAnomalies) {
+      const arr = anomaliesByCol.get(a.column) ?? [];
+      arr.push(a);
+      anomaliesByCol.set(a.column, arr);
+    }
+
+    for (const [colName, anomList] of anomaliesByCol.entries()) {
+      const dom = dominantPatterns.get(colName);
+      const friendlyFormat = humanizePatternName(dom?.pattern ?? "", dom?.sample);
+      const sampleBreaker = String(anomList[0].value);
+
+      list.push({
+        id: `pattern-${colName}`,
+        category: "patterns",
+        title: `Format Mismatch in "${colName}"`,
+        description: `Most entries follow a ${friendlyFormat}, but ${anomList.length} row${anomList.length === 1 ? "" : "s"} have an unexpected format (such as "${sampleBreaker}").`,
+        metric: `${anomList.length} mismatch`,
+        action: {
+          label: "Inspect in Table",
+          onClick: () => handleInspectAnomalyInTable(colName),
+        },
+      });
+    }
+
+    // 3. High-Impact Numeric Peaks
     for (const c of numericCols) {
       const stats = columnStats.get(c.name)?.numeric;
       if (!stats) continue;
@@ -667,6 +839,7 @@ export default function CsvExcelAnalyzer() {
       }
     }
 
+    // 4. Dominant Categories
     for (const c of textCols) {
       const stats = columnStats.get(c.name)?.text;
       if (!stats || stats.top.length === 0) continue;
@@ -683,6 +856,7 @@ export default function CsvExcelAnalyzer() {
       }
     }
 
+    // 5. Timeline
     for (const c of dateCols) {
       const stats = columnStats.get(c.name)?.date;
       if (!stats) continue;
@@ -696,16 +870,25 @@ export default function CsvExcelAnalyzer() {
     }
 
     return list;
-  }, [columnInfo, columnStats, rows, redundantCount]);
+  }, [columnInfo, columnStats, rows, redundantCount, patternAnomalies, dominantPatterns]);
 
   const filteredInsights = useMemo(() => {
     if (activeInsightFilter === "all") return structuredInsights;
     return structuredInsights.filter((item) => item.category === activeInsightFilter);
   }, [structuredInsights, activeInsightFilter]);
 
-  // Filtering & Sorting
+  // Filtering & Sorting (Includes activeAnomalyCol filter)
   const filteredRows = useMemo(() => {
     let result = rows;
+
+    // Filter down to rows breaking the pattern for activeAnomalyCol if clicked from Insights
+    if (activeAnomalyCol) {
+      result = result.filter((row) => {
+        const originalIndex = rows.indexOf(row);
+        return patternAnomalySet.has(`${originalIndex}:${activeAnomalyCol}`);
+      });
+    }
+
     if (filters.length > 0) {
       result = result.filter((row) =>
         filters.every((f) => matchesFilter(row[f.column], f, columnTypeMap.get(f.column) ?? "text"))
@@ -718,7 +901,7 @@ export default function CsvExcelAnalyzer() {
       );
     }
     return result;
-  }, [rows, filters, search, headers, columnTypeMap]);
+  }, [rows, filters, search, headers, columnTypeMap, activeAnomalyCol, patternAnomalySet]);
 
   const sortedRows = useMemo(() => {
     if (!sortConfig.column || !sortConfig.direction) return filteredRows;
@@ -885,7 +1068,7 @@ export default function CsvExcelAnalyzer() {
     toast.success(`Removed ${initialCount - cleaned.length} rows missing "${col}"`);
   };
 
-  // True Native Styled OpenXML XLSX Export (Full Colors + Zero Warning Banner)
+  // Safe Native Styled OpenXML XLSX Export (Full Colors + Zero Warning Banner)
   const handleExportExplorerData = () => {
     if (highlightIssues) {
       const wb = XLSX.utils.book_new();
@@ -903,7 +1086,6 @@ export default function CsvExcelAnalyzer() {
 
       const ws = XLSX.utils.aoa_to_sheet(sheetData);
 
-      // Apply cell background colors directly into OpenXML styles
       // Header styling
       for (let c = 0; c < visibleHeaders.length; c++) {
         const cellRef = XLSX.utils.encode_cell({ r: 0, c });
@@ -916,26 +1098,32 @@ export default function CsvExcelAnalyzer() {
         }
       }
 
-      // Row styling: Amber for duplicates, Rose for empty cells
+      // Row styling: Amber for duplicates, Rose for empty cells, Purple for pattern breakers
       for (let r = 0; r < sortedRows.length; r++) {
         const row = sortedRows[r];
         const isDup = duplicateRowKeys.has(rowKey(row, headers));
+        const originalIndex = rows.indexOf(row);
 
         for (let c = 0; c < visibleHeaders.length; c++) {
           const cellRef = XLSX.utils.encode_cell({ r: r + 1, c });
           if (!ws[cellRef]) continue;
 
-          const val = row[visibleHeaders[c]];
+          const colName = visibleHeaders[c];
+          const val = row[colName];
           const empty = isEmptyValue(val);
+          const isPatternBroken = patternAnomalySet.has(`${originalIndex}:${colName}`);
 
           if (empty) {
-            // Soft Rose with Bold Red text
             ws[cellRef].s = {
               fill: { fgColor: { rgb: "FFE4E6" } },
               font: { bold: true, color: { rgb: "BE123C" } },
             };
+          } else if (isPatternBroken) {
+            ws[cellRef].s = {
+              fill: { fgColor: { rgb: "F3E8FF" } },
+              font: { bold: true, color: { rgb: "7E22CE" } },
+            };
           } else if (isDup) {
-            // Soft Amber for duplicate rows
             ws[cellRef].s = {
               fill: { fgColor: { rgb: "FEF3C7" } },
             };
@@ -1249,9 +1437,28 @@ export default function CsvExcelAnalyzer() {
             </div>
           )}
 
-          {/* TAB 2: Explorer with Colors and Zero Warning */}
+          {/* TAB 2: Explorer with Direct Anomaly Banner & Highlighted View */}
           {activeTab === "explorer" && (
             <div className="space-y-3">
+              {/* Active Anomaly Banner */}
+              {activeAnomalyCol && (
+                <div className="flex items-center justify-between gap-3 rounded-xl border-2 border-purple-600 bg-purple-50 p-3 text-xs font-semibold text-purple-950 shadow-[3px_3px_0_0_#9333ea]">
+                  <div className="flex items-center gap-2">
+                    <Fingerprint className="h-4 w-4 text-purple-600" />
+                    <span>
+                      Filtered to rows with format mismatches in <strong>"{activeAnomalyCol}"</strong> ({filteredRows.length} found)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveAnomalyCol(null)}
+                    className="rounded-full border border-purple-600 bg-purple-100 px-3 py-1 font-bold text-purple-900 hover:bg-purple-200"
+                  >
+                    Show All Rows
+                  </button>
+                </div>
+              )}
+
               <div className="flex flex-wrap items-center gap-2">
                 <div className="relative min-w-[180px] flex-1">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -1290,7 +1497,7 @@ export default function CsvExcelAnalyzer() {
                     onChange={(e) => setHighlightIssues(e.target.checked)}
                     className="h-3.5 w-3.5 accent-foreground"
                   />
-                  Highlight dupes / blanks
+                  Highlight issues & patterns
                 </label>
                 <button
                   type="button"
@@ -1422,6 +1629,7 @@ export default function CsvExcelAnalyzer() {
                   <tbody>
                     {pagedRows.map((row, i) => {
                       const isDup = highlightIssues && duplicateRowKeys.has(rowKey(row, headers));
+                      const originalIndex = rows.indexOf(row);
 
                       return (
                         <tr
@@ -1437,13 +1645,17 @@ export default function CsvExcelAnalyzer() {
                           {visibleHeaders.map((h) => {
                             const v = row[h];
                             const empty = isEmptyValue(v);
+                            const isPatternBroken = highlightIssues && patternAnomalySet.has(`${originalIndex}:${h}`);
+
                             return (
                               <td
                                 key={h}
                                 style={{ width: columnWidths.get(h) ?? 150, minWidth: columnWidths.get(h) ?? 150 }}
                                 className={`truncate border-r border-foreground/10 px-3 py-1.5 ${
-                                  highlightIssues && empty
+                                  empty && highlightIssues
                                     ? "bg-rose-100/90 text-rose-700 font-bold italic shadow-[inset_0_0_0_1px_rgba(225,29,72,0.3)]"
+                                    : isPatternBroken
+                                    ? "bg-purple-100/90 text-purple-900 font-bold shadow-[inset_0_0_0_1.5px_rgba(147,51,234,0.5)]"
                                     : ""
                                 }`}
                               >
@@ -1455,6 +1667,11 @@ export default function CsvExcelAnalyzer() {
                                   ) : (
                                     "—"
                                   )
+                                ) : isPatternBroken ? (
+                                  <span className="inline-flex items-center gap-1" title="Breaks expected column format">
+                                    <Fingerprint className="h-3 w-3 text-purple-600 shrink-0" />
+                                    <span>{String(v)}</span>
+                                  </span>
                                 ) : v instanceof Date ? (
                                   rawView ? (
                                     v.toISOString()
@@ -1657,14 +1874,15 @@ export default function CsvExcelAnalyzer() {
             </div>
           )}
 
-          {/* TAB 4: Interactive Insights */}
+          {/* TAB 4: Interactive Modular Insights */}
           {activeTab === "insights" && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-1.5 border-b-2 border-foreground/10 pb-3">
                 {(
                   [
                     { id: "all", label: "All Insights", count: structuredInsights.length },
-                    { id: "health", label: "Data Quality & Health", count: structuredInsights.filter((i) => i.category === "health").length },
+                    { id: "health", label: "Data Health", count: structuredInsights.filter((i) => i.category === "health").length },
+                    { id: "patterns", label: "Format Mismatches", count: structuredInsights.filter((i) => i.category === "patterns").length },
                     { id: "peaks", label: "Peaks & Milestones", count: structuredInsights.filter((i) => i.category === "peaks").length },
                     { id: "categories", label: "Dominant Segments", count: structuredInsights.filter((i) => i.category === "categories").length },
                     { id: "timeline", label: "Timeline", count: structuredInsights.filter((i) => i.category === "timeline").length },
@@ -1697,6 +1915,8 @@ export default function CsvExcelAnalyzer() {
                         <div className="flex items-center gap-1.5">
                           {item.category === "health" ? (
                             <ShieldAlert className="h-4 w-4 text-rose-600" />
+                          ) : item.category === "patterns" ? (
+                            <Fingerprint className="h-4 w-4 text-purple-600" />
                           ) : item.category === "peaks" ? (
                             <TrendingUp className="h-4 w-4 text-emerald-600" />
                           ) : item.category === "categories" ? (
@@ -1724,8 +1944,8 @@ export default function CsvExcelAnalyzer() {
                       {item.action && (
                         <button
                           type="button"
-                          onClick={() => setActiveTab(item.action!.tab)}
-                          className="inline-flex items-center gap-1 text-xs font-bold hover:underline"
+                          onClick={item.action.onClick}
+                          className="inline-flex items-center gap-1 text-xs font-bold text-foreground hover:underline"
                         >
                           {item.action.label} <ArrowRight className="h-3 w-3" />
                         </button>
@@ -1737,7 +1957,7 @@ export default function CsvExcelAnalyzer() {
                 {filteredInsights.length === 0 && (
                   <div className="col-span-full rounded-xl border-2 border-foreground bg-background p-8 text-center shadow-[3px_3px_0_0_var(--color-foreground)]">
                     <Sparkles className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
-                    <p className="text-sm font-semibold">No insights found in this section.</p>
+                    <p className="text-sm font-semibold">No issues or special patterns found in this category.</p>
                   </div>
                 )}
               </div>
